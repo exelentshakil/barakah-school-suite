@@ -10,6 +10,13 @@ import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
 import Admission from "./pages/Admission";
 import Fees from "./pages/Fees";
+import Attendance from "./pages/Attendance";
+import Exams from "./pages/Exams";
+import IDCards from "./pages/IDCards";
+import Certificates from "./pages/Certificates";
+import SMS from "./pages/SMS";
+import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,13 +48,13 @@ function AppRoutes() {
       <Route path="/students" element={<ProtectedRoute><Students /></ProtectedRoute>} />
       <Route path="/admission" element={<ProtectedRoute><Admission /></ProtectedRoute>} />
       <Route path="/fees" element={<ProtectedRoute><Fees /></ProtectedRoute>} />
-      <Route path="/attendance" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/exams" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/id-cards" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/certificates" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/sms" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/reports" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
+      <Route path="/exams" element={<ProtectedRoute><Exams /></ProtectedRoute>} />
+      <Route path="/id-cards" element={<ProtectedRoute><IDCards /></ProtectedRoute>} />
+      <Route path="/certificates" element={<ProtectedRoute><Certificates /></ProtectedRoute>} />
+      <Route path="/sms" element={<ProtectedRoute><SMS /></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
