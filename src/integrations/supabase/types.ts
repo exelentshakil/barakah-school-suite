@@ -17,28 +17,25 @@ export type Database = {
       attendance: {
         Row: {
           created_at: string | null
-          date: string
+          date: string | null
           id: string
           marked_by: string | null
-          note: string | null
           status: Database["public"]["Enums"]["attendance_status"] | null
           student_id: string
         }
         Insert: {
           created_at?: string | null
-          date?: string
+          date?: string | null
           id?: string
           marked_by?: string | null
-          note?: string | null
           status?: Database["public"]["Enums"]["attendance_status"] | null
           student_id: string
         }
         Update: {
           created_at?: string | null
-          date?: string
+          date?: string | null
           id?: string
           marked_by?: string | null
-          note?: string | null
           status?: Database["public"]["Enums"]["attendance_status"] | null
           student_id?: string
         }
@@ -55,10 +52,8 @@ export type Database = {
       certificates: {
         Row: {
           certificate_no: string
-          conduct: string | null
           created_at: string | null
           id: string
-          is_duplicate: boolean | null
           issue_date: string | null
           issued_by: string | null
           reason: string | null
@@ -67,10 +62,8 @@ export type Database = {
         }
         Insert: {
           certificate_no: string
-          conduct?: string | null
           created_at?: string | null
           id?: string
-          is_duplicate?: boolean | null
           issue_date?: string | null
           issued_by?: string | null
           reason?: string | null
@@ -79,10 +72,8 @@ export type Database = {
         }
         Update: {
           certificate_no?: string
-          conduct?: string | null
           created_at?: string | null
           id?: string
-          is_duplicate?: boolean | null
           issue_date?: string | null
           issued_by?: string | null
           reason?: string | null
@@ -102,21 +93,21 @@ export type Database = {
       classes: {
         Row: {
           created_at: string | null
-          display_order: number
+          display_order: number | null
           id: string
           name: string
           name_bn: string | null
         }
         Insert: {
           created_at?: string | null
-          display_order?: number
+          display_order?: number | null
           id?: string
           name: string
           name_bn?: string | null
         }
         Update: {
           created_at?: string | null
-          display_order?: number
+          display_order?: number | null
           id?: string
           name?: string
           name_bn?: string | null
@@ -126,45 +117,27 @@ export type Database = {
       exam_subjects: {
         Row: {
           created_at: string | null
-          exam_date: string | null
           exam_id: string
-          exam_time: string | null
           full_marks: number | null
           id: string
-          mcq_marks: number | null
-          pass_marks: number | null
-          practical_marks: number | null
           subject_id: string | null
           subject_name: string
-          written_marks: number | null
         }
         Insert: {
           created_at?: string | null
-          exam_date?: string | null
           exam_id: string
-          exam_time?: string | null
           full_marks?: number | null
           id?: string
-          mcq_marks?: number | null
-          pass_marks?: number | null
-          practical_marks?: number | null
           subject_id?: string | null
           subject_name: string
-          written_marks?: number | null
         }
         Update: {
           created_at?: string | null
-          exam_date?: string | null
           exam_id?: string
-          exam_time?: string | null
           full_marks?: number | null
           id?: string
-          mcq_marks?: number | null
-          pass_marks?: number | null
-          practical_marks?: number | null
           subject_id?: string | null
           subject_name?: string
-          written_marks?: number | null
         }
         Relationships: [
           {
@@ -247,28 +220,25 @@ export type Database = {
       }
       fee_plans: {
         Row: {
-          amount: number
+          amount: number | null
           class_id: string
           created_at: string | null
           fee_head_id: string
           id: string
-          shift: Database["public"]["Enums"]["shift_type"] | null
         }
         Insert: {
-          amount?: number
+          amount?: number | null
           class_id: string
           created_at?: string | null
           fee_head_id: string
           id?: string
-          shift?: Database["public"]["Enums"]["shift_type"] | null
         }
         Update: {
-          amount?: number
+          amount?: number | null
           class_id?: string
           created_at?: string | null
           fee_head_id?: string
           id?: string
-          shift?: Database["public"]["Enums"]["shift_type"] | null
         }
         Relationships: [
           {
@@ -290,56 +260,29 @@ export type Database = {
       guardians: {
         Row: {
           created_at: string | null
-          emergency_contact_mobile: string | null
-          emergency_contact_name: string | null
           father_mobile: string
           father_name: string
-          father_nid: string | null
-          father_occupation: string | null
           id: string
-          local_guardian_mobile: string | null
-          local_guardian_name: string | null
-          local_guardian_relation: string | null
           mother_mobile: string | null
           mother_name: string | null
-          mother_nid: string | null
-          mother_occupation: string | null
           student_id: string
         }
         Insert: {
           created_at?: string | null
-          emergency_contact_mobile?: string | null
-          emergency_contact_name?: string | null
           father_mobile: string
           father_name: string
-          father_nid?: string | null
-          father_occupation?: string | null
           id?: string
-          local_guardian_mobile?: string | null
-          local_guardian_name?: string | null
-          local_guardian_relation?: string | null
           mother_mobile?: string | null
           mother_name?: string | null
-          mother_nid?: string | null
-          mother_occupation?: string | null
           student_id: string
         }
         Update: {
           created_at?: string | null
-          emergency_contact_mobile?: string | null
-          emergency_contact_name?: string | null
           father_mobile?: string
           father_name?: string
-          father_nid?: string | null
-          father_occupation?: string | null
           id?: string
-          local_guardian_mobile?: string | null
-          local_guardian_name?: string | null
-          local_guardian_relation?: string | null
           mother_mobile?: string | null
           mother_name?: string | null
-          mother_nid?: string | null
-          mother_occupation?: string | null
           student_id?: string
         }
         Relationships: [
@@ -354,21 +297,21 @@ export type Database = {
       }
       invoice_items: {
         Row: {
-          amount: number
+          amount: number | null
           fee_head_id: string | null
           fee_head_name: string | null
           id: string
           invoice_id: string
         }
         Insert: {
-          amount?: number
+          amount?: number | null
           fee_head_id?: string | null
           fee_head_name?: string | null
           id?: string
           invoice_id: string
         }
         Update: {
-          amount?: number
+          amount?: number | null
           fee_head_id?: string | null
           fee_head_name?: string | null
           id?: string
@@ -396,49 +339,37 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           discount: number | null
-          due_date: string | null
-          fine: number | null
           id: string
           invoice_date: string | null
           invoice_no: string
-          month: number | null
           status: Database["public"]["Enums"]["invoice_status"] | null
           student_id: string
           subtotal: number | null
           total: number | null
-          year: number | null
         }
         Insert: {
           created_at?: string | null
           created_by?: string | null
           discount?: number | null
-          due_date?: string | null
-          fine?: number | null
           id?: string
           invoice_date?: string | null
           invoice_no: string
-          month?: number | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           student_id: string
           subtotal?: number | null
           total?: number | null
-          year?: number | null
         }
         Update: {
           created_at?: string | null
           created_by?: string | null
           discount?: number | null
-          due_date?: string | null
-          fine?: number | null
           id?: string
           invoice_date?: string | null
           invoice_no?: string
-          month?: number | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           student_id?: string
           subtotal?: number | null
           total?: number | null
-          year?: number | null
         }
         Relationships: [
           {
@@ -514,6 +445,39 @@ export type Database = {
           },
         ]
       }
+      payment_transactions: {
+        Row: {
+          amount: number | null
+          completed_at: string | null
+          created_at: string | null
+          gateway_data: Json | null
+          id: string
+          invoice_id: string | null
+          status: string | null
+          transaction_id: string
+        }
+        Insert: {
+          amount?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          gateway_data?: Json | null
+          id?: string
+          invoice_id?: string | null
+          status?: string | null
+          transaction_id: string
+        }
+        Update: {
+          amount?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          gateway_data?: Json | null
+          id?: string
+          invoice_id?: string | null
+          status?: string | null
+          transaction_id?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -586,13 +550,12 @@ export type Database = {
         Row: {
           academic_year: string | null
           address: string | null
-          board: Database["public"]["Enums"]["board_type"] | null
-          code: string
+          code: string | null
           created_at: string | null
           email: string | null
           id: string
           logo_url: string | null
-          name: string
+          name: string | null
           name_bn: string | null
           phone: string | null
           session_year: string | null
@@ -602,13 +565,12 @@ export type Database = {
         Insert: {
           academic_year?: string | null
           address?: string | null
-          board?: Database["public"]["Enums"]["board_type"] | null
-          code?: string
+          code?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
           logo_url?: string | null
-          name?: string
+          name?: string | null
           name_bn?: string | null
           phone?: string | null
           session_year?: string | null
@@ -618,13 +580,12 @@ export type Database = {
         Update: {
           academic_year?: string | null
           address?: string | null
-          board?: Database["public"]["Enums"]["board_type"] | null
-          code?: string
+          code?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
           logo_url?: string | null
-          name?: string
+          name?: string | null
           name_bn?: string | null
           phone?: string | null
           session_year?: string | null
@@ -751,19 +712,17 @@ export type Database = {
       }
       students: {
         Row: {
-          address_permanent: string | null
           address_present: string | null
           admission_date: string | null
           blood_group: string | null
           class_id: string | null
           created_at: string | null
           dob: string | null
-          gender: Database["public"]["Enums"]["gender_type"]
+          gender: Database["public"]["Enums"]["gender_type"] | null
           id: string
           name_bn: string | null
           name_en: string
           photo_url: string | null
-          religion: string | null
           roll: number | null
           section_id: string | null
           shift: Database["public"]["Enums"]["shift_type"] | null
@@ -772,19 +731,17 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          address_permanent?: string | null
           address_present?: string | null
           admission_date?: string | null
           blood_group?: string | null
           class_id?: string | null
           created_at?: string | null
           dob?: string | null
-          gender?: Database["public"]["Enums"]["gender_type"]
+          gender?: Database["public"]["Enums"]["gender_type"] | null
           id?: string
           name_bn?: string | null
           name_en: string
           photo_url?: string | null
-          religion?: string | null
           roll?: number | null
           section_id?: string | null
           shift?: Database["public"]["Enums"]["shift_type"] | null
@@ -793,19 +750,17 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          address_permanent?: string | null
           address_present?: string | null
           admission_date?: string | null
           blood_group?: string | null
           class_id?: string | null
           created_at?: string | null
           dob?: string | null
-          gender?: Database["public"]["Enums"]["gender_type"]
+          gender?: Database["public"]["Enums"]["gender_type"] | null
           id?: string
           name_bn?: string | null
           name_en?: string
           photo_url?: string | null
-          religion?: string | null
           roll?: number | null
           section_id?: string | null
           shift?: Database["public"]["Enums"]["shift_type"] | null
@@ -836,7 +791,6 @@ export type Database = {
           created_at: string | null
           full_marks: number | null
           id: string
-          is_optional: boolean | null
           name: string
           name_bn: string | null
           pass_marks: number | null
@@ -846,7 +800,6 @@ export type Database = {
           created_at?: string | null
           full_marks?: number | null
           id?: string
-          is_optional?: boolean | null
           name: string
           name_bn?: string | null
           pass_marks?: number | null
@@ -856,7 +809,6 @@ export type Database = {
           created_at?: string | null
           full_marks?: number | null
           id?: string
-          is_optional?: boolean | null
           name?: string
           name_bn?: string | null
           pass_marks?: number | null
@@ -896,29 +848,7 @@ export type Database = {
           subject_id?: string | null
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "teacher_assignments_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "classes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "teacher_assignments_section_id_fkey"
-            columns: ["section_id"]
-            isOneToOne: false
-            referencedRelation: "sections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "teacher_assignments_subject_id_fkey"
-            columns: ["subject_id"]
-            isOneToOne: false
-            referencedRelation: "subjects"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -946,13 +876,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
       app_role: "admin" | "teacher" | "accountant"
@@ -962,7 +886,7 @@ export type Database = {
       exam_type: "class-test" | "mid-term" | "final" | "annual"
       gender_type: "male" | "female"
       invoice_status: "paid" | "partial" | "unpaid"
-      payment_method: "cash" | "bkash" | "nagad" | "bank" | "card"
+      payment_method: "cash" | "bkash" | "nagad" | "bank" | "sslcommerz"
       shift_type: "morning" | "day" | "evening"
       sms_status: "sent" | "failed" | "pending"
       student_status: "active" | "inactive" | "transferred"
@@ -1100,7 +1024,7 @@ export const Constants = {
       exam_type: ["class-test", "mid-term", "final", "annual"],
       gender_type: ["male", "female"],
       invoice_status: ["paid", "partial", "unpaid"],
-      payment_method: ["cash", "bkash", "nagad", "bank", "card"],
+      payment_method: ["cash", "bkash", "nagad", "bank", "sslcommerz"],
       shift_type: ["morning", "day", "evening"],
       sms_status: ["sent", "failed", "pending"],
       student_status: ["active", "inactive", "transferred"],
