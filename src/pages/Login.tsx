@@ -142,14 +142,6 @@ export default function Login() {
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="flex-col space-y-4 pt-0">
-            <div className="text-center text-sm text-muted-foreground">
-              <p className="font-medium mb-2">Demo Accounts:</p>
-              <div className="space-y-1 text-xs">
-                <p><span className="font-mono bg-muted px-1 rounded">admin@barakahsoft.com</span> / admin123</p>
-              </div>
-            </div>
-          </CardFooter>
         </Card>
 
         {/* Footer */}
