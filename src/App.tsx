@@ -11,6 +11,22 @@ import Students from "./pages/Students";
 import Admission from "./pages/Admission";
 import Fees from "./pages/Fees";
 import NotFound from "./pages/NotFound";
+import Attendance from "./pages/Attendance";
+import Exams from "@/pages/Exams.tsx";
+import IDCards from "@/pages/IDCards.tsx";
+import Certificates from "@/pages/Certificates.tsx";
+import SMS from "@/pages/SMS.tsx";
+import Reports from "@/pages/Reports.tsx";
+import SettingsPage from "@/pages/Settings.tsx";
+import MarksEntry from "@/pages/MarksEntry.tsx";
+import ReportCards from "@/pages/ReportCards.tsx";
+import Marks from "@/pages/Marks.tsx";
+import Verify from "@/pages/Verify.tsx";
+import VerifyCertificate from "@/pages/VerifyCertificate.tsx";
+import PromoteStudents from "@/pages/PromoteStudents.tsx";
+import StudentDetail from "@/pages/StudentDetail.tsx";
+import SMSPaymentFail from "@/pages/SMSPaymentFail.tsx";
+import SMSPaymentCancel from "@/pages/SMSPaymentCancel.tsx";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +48,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function SMSPaymentSuccess() {
+    return null;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -39,16 +59,27 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/students" element={<ProtectedRoute><Students /></ProtectedRoute>} />
+        <Route path="/id-cards" element={<ProtectedRoute><IDCards /></ProtectedRoute>} />
       <Route path="/admission" element={<ProtectedRoute><Admission /></ProtectedRoute>} />
       <Route path="/fees" element={<ProtectedRoute><Fees /></ProtectedRoute>} />
-      <Route path="/attendance" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/exams" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/id-cards" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/certificates" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/sms" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/reports" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="*" element={<NotFound />} />
+      <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
+      <Route path="/exams" element={<ProtectedRoute><Exams /></ProtectedRoute>} />
+      <Route path="/certificates" element={<ProtectedRoute><Certificates /></ProtectedRoute>} />
+      <Route path="/sms" element={<ProtectedRoute><SMS /></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+        <Route path="/marks" element={<ProtectedRoute><Marks /></ProtectedRoute>} />
+        <Route path="/report-cards/:examId" element={<ProtectedRoute><ReportCards /></ProtectedRoute>} />
+        <Route path="/verify" element={<Verify />} />
+        <Route path="/verify-certificate" element={<VerifyCertificate />} />
+        <Route path="/promote-students" element={<PromoteStudents />} />
+        <Route path="/students/:id" element={<StudentDetail />} />
+
+        <Route path="/sms-payment-success" element={<SMSPaymentSuccess />} />
+        <Route path="/sms-payment-fail" element={<SMSPaymentFail />} />
+        <Route path="/sms-payment-cancel" element={<SMSPaymentCancel />} />
+
+        <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

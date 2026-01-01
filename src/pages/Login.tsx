@@ -147,8 +147,6 @@ export default function Login() {
               <p className="font-medium mb-2">Demo Accounts:</p>
               <div className="space-y-1 text-xs">
                 <p><span className="font-mono bg-muted px-1 rounded">admin@barakahsoft.com</span> / admin123</p>
-                <p><span className="font-mono bg-muted px-1 rounded">teacher@barakahsoft.com</span> / teacher123</p>
-                <p><span className="font-mono bg-muted px-1 rounded">accountant@barakahsoft.com</span> / accountant123</p>
               </div>
             </div>
           </CardFooter>

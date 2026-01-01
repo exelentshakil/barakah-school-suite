@@ -1,100 +1,115 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 import { User, UserRole } from '@/types';
 
 interface AuthContextType {
-  user: User | null;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
-  isAuthenticated: boolean;
+    user: User | null;
+    isLoading: boolean;
+    login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+    logout: () => void;
+    isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Demo users for MVP
-const demoUsers: Record<string, { password: string; user: User }> = {
-  'admin@barakahsoft.com': {
-    password: 'admin123',
-    user: {
-      id: '1',
-      email: 'admin@barakahsoft.com',
-      name: 'Principal Mohammad',
-      role: 'admin',
-    },
-  },
-  'teacher@barakahsoft.com': {
-    password: 'teacher123',
-    user: {
-      id: '2',
-      email: 'teacher@barakahsoft.com',
-      name: 'Ustaz Abdullah',
-      role: 'teacher',
-      assignedClasses: ['class-1', 'class-2'],
-    },
-  },
-  'accountant@barakahsoft.com': {
-    password: 'accountant123',
-    user: {
-      id: '3',
-      email: 'accountant@barakahsoft.com',
-      name: 'Karim Ahmed',
-      role: 'accountant',
-    },
-  },
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+    const [user, setUser] = useState<User | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Check for existing session
-    const savedUser = localStorage.getItem('barakahsoft_user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        localStorage.removeItem('barakahsoft_user');
-      }
-    }
-    setIsLoading(false);
-  }, []);
+    useEffect(() => {
+        checkAuth();
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                loadUserProfile(session.user);
+            } else {
+                setUser(null);
+                setIsLoading(false);
+            }
+        });
 
-    const demoUser = demoUsers[email.toLowerCase()];
-    
-    if (!demoUser) {
-      return { success: false, error: 'User not found. Please check your email.' };
-    }
+        return () => subscription.unsubscribe();
+    }, []);
 
-    if (demoUser.password !== password) {
-      return { success: false, error: 'Incorrect password. Please try again.' };
-    }
+    const checkAuth = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+            await loadUserProfile(session.user);
+        } else {
+            setIsLoading(false);
+        }
+    };
 
-    setUser(demoUser.user);
-    localStorage.setItem('barakahsoft_user', JSON.stringify(demoUser.user));
-    return { success: true };
-  };
+    const loadUserProfile = async (supabaseUser: SupabaseUser) => {
+        try {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('name')
+                .eq('user_id', supabaseUser.id)
+                .maybeSingle();
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('barakahsoft_user');
-  };
+            const { data: roleData } = await supabase
+                .from('user_roles')
+                .select('role')
+                .eq('user_id', supabaseUser.id)
+                .maybeSingle();
 
-  return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, isAuthenticated: !!user }}>
-      {children}
-    </AuthContext.Provider>
-  );
+            const { data: assignments } = await supabase
+                .from('teacher_assignments')
+                .select('class_id')
+                .eq('user_id', supabaseUser.id);
+
+            setUser({
+                id: supabaseUser.id,
+                email: supabaseUser.email!,
+                name: profile?.name || 'User',
+                role: (roleData?.role || 'teacher') as UserRole,
+                assignedClasses: assignments?.map(a => a.class_id) || []
+            });
+        } catch (error) {
+            console.error('Error loading profile:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            });
+
+            if (error) throw error;
+
+            if (data.user) {
+                await loadUserProfile(data.user);
+                return { success: true };
+            }
+
+            return { success: false, error: 'Login failed' };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
+    };
+
+    const logout = async () => {
+        await supabase.auth.signOut();
+        setUser(null);
+    };
+
+    return (
+        <AuthContext.Provider value={{ user, isLoading, login, logout, isAuthenticated: !!user }}>
+            {children}
+        </AuthContext.Provider>
+    );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
 }
