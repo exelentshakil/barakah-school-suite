@@ -96,47 +96,31 @@ export default function Dashboard() {
     const loadFinancials = async () => {
         const thisMonth = new Date();
         const startOfMonth = new Date(thisMonth.getFullYear(), thisMonth.getMonth(), 1).toISOString();
-// --- NEW: Calculate Dynamic Target ---
-        // This calculates: If everyone pays their fees, how much should we get?
 
-        // A. Get active students count
-        const { count: activeStudents } = await supabase
-            .from('students')
-            .select('*', { count: 'exact', head: true })
-            .eq('status', 'active');
+        // 1. Revenue This Month (Cash Flow)
+        const { data: payments } = await supabase
+            .from('payments')
+            .select('amount')
+            .gte('created_at', startOfMonth);
 
-        // B. Get average monthly fee (or sum of all fee plans)
-        // For simplicity, let's assume an average fee or fetch from fee_plans
-        // Ideally: Sum of (Student x Their Class Fee)
-
-        // Fast estimation method:
-        // Fetch fee plans for all classes
-        const { data: feePlans } = await supabase.from('fee_plans').select('amount, class_id');
-
-        // Calculate average monthly fee per student approx
-        const avgFee = feePlans
-            ? feePlans.reduce((sum, plan) => sum + Number(plan.amount), 0) / (feePlans.length || 1)
-            : 1500; // Default fallback if no plans set
-
-        const estimatedTarget = (activeStudents || 0) * avgFee;
-
-        setDynamicTarget(estimatedTarget);
-        // Revenue This Month
-        const { data: payments } = await supabase.from('payments').select('amount').gte('created_at', startOfMonth);
         const currentRev = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
 
-        // Revenue Last Month
+        // 2. Revenue Last Month (for growth calc)
         const startOfLastMonth = new Date(thisMonth.getFullYear(), thisMonth.getMonth() - 1, 1).toISOString();
-        const { data: lastPayments } = await supabase.from('payments').select('amount')
-            .gte('created_at', startOfLastMonth).lt('created_at', startOfMonth);
-        const lastRev = lastPayments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+        const { data: lastPayments } = await supabase
+            .from('payments')
+            .select('amount')
+            .gte('created_at', startOfLastMonth)
+            .lt('created_at', startOfMonth);
 
+        const lastRev = lastPayments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
         const growth = lastRev > 0 ? ((currentRev - lastRev) / lastRev) * 100 : 100;
 
-        // Chart Data (Last 6 Months)
+        // 3. Chart Data
         const months = [];
         for (let i = 5; i >= 0; i--) {
-            const d = new Date(); d.setMonth(d.getMonth() - i);
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
             const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
             const end = new Date(d.getFullYear(), d.getMonth() + 1, 1).toISOString();
 
@@ -147,19 +131,58 @@ export default function Dashboard() {
             });
         }
 
-        // Expected Revenue (Due up to Next 7 Days)
+        // --- NEW: SMART DYNAMIC TARGET LOGIC ---
+
+        // A. Calculate Recurring Potential (Based on Active Students & Monthly Plans)
+        const { data: activeStudents } = await supabase.from('students').select('class_id, section_id').eq('status', 'active');
+        const { data: monthlyPlans } = await supabase
+            .from('fee_plans')
+            .select('amount, class_id, section_id, fee_heads!inner(type)')
+            .eq('fee_heads.type', 'monthly');
+
+        let recurringPotential = 0;
+        if (activeStudents && monthlyPlans) {
+            recurringPotential = activeStudents.reduce((total, student) => {
+                const studentFees = monthlyPlans.reduce((sum, plan) => {
+                    const classMatch = plan.class_id === student.class_id;
+                    const sectionMatch = plan.section_id === null || plan.section_id === student.section_id;
+                    return (classMatch && sectionMatch) ? sum + Number(plan.amount) : sum;
+                }, 0);
+                return total + studentFees;
+            }, 0);
+        }
+
+        // B. Calculate Actual Demand (Total Invoices Created This Month)
+        // This catches non-monthly fees (Exams, Admission, etc.)
+        const { data: currentMonthInvoices } = await supabase
+            .from('invoices')
+            .select('total_amount')
+            .gte('invoice_date', startOfMonth);
+
+        const totalInvoiced = currentMonthInvoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+
+        // C. The "Smart Target" is whichever is higher.
+        // If invoices generated > recurring potential, use invoices. Otherwise, use potential.
+        // Also ensure Target is at least equal to Revenue (handles past-due collections boosting revenue)
+        let finalTarget = Math.max(recurringPotential, totalInvoiced);
+        if (currentRev > finalTarget) finalTarget = currentRev; // Prevents > 100% visual glitch
+
+        setDynamicTarget(finalTarget);
+
+        // --- END SMART TARGET ---
+
+        // 4. Forecast Data (Due Next 7 Days)
         const nextWeek = new Date();
         nextWeek.setDate(nextWeek.getDate() + 7);
+        const today = new Date().toISOString();
 
-        // FIX: Removed 'gte' for today so it includes ALL overdue invoices
         const { data: dueInvoices } = await supabase
             .from('invoices')
-            .select('total_amount, paid_amount, student_id')
+            .select('total, paid_amount, student_id')
+            .lte('due_date', nextWeek.toISOString())
             .neq('status', 'paid');
 
-        const dueAmount = dueInvoices?.reduce((sum, i) => sum + (Number(i.total_amount) - Number(i.paid_amount || 0)), 0) || 0;
-
-        // FIX: Count Unique Students
+        const dueAmount = dueInvoices?.reduce((sum, i) => sum + (Number(i.total) - Number(i.paid_amount || 0)), 0) || 0;
         const uniqueStudentIds = new Set(dueInvoices?.map(i => i.student_id)).size;
 
         setKpi(prev => ({ ...prev, revenue: currentRev, revenueGrowth: growth, cashflow: currentRev * 0.45 }));
