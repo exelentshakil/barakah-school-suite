@@ -320,7 +320,7 @@ export default function Dashboard() {
                             <div className="flex justify-between text-xs">
                                 <span className="text-muted-foreground">Collected</span>
                                 <span className="font-medium text-slate-600">
-                                    {((kpi.revenue / dynamicTarget) * 100).toFixed(0)}% of Potential
+                                    {dynamicTarget > 0 ? ((kpi.revenue / dynamicTarget) * 100).toFixed(0) : 0}% of Potential
                                 </span>
                             </div>
                             <Progress value={(kpi.revenue / dynamicTarget) * 100} className="h-2" />
