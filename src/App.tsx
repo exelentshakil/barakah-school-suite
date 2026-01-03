@@ -27,6 +27,10 @@ import PromoteStudents from "@/pages/PromoteStudents.tsx";
 import StudentDetail from "@/pages/StudentDetail.tsx";
 import SMSPaymentFail from "@/pages/SMSPaymentFail.tsx";
 import SMSPaymentCancel from "@/pages/SMSPaymentCancel.tsx";
+import ReceiptView from "@/pages/ReceiptView.tsx";
+import AccountingPage from "@/pages/AccountingPage.tsx";
+import AdmitCards from "@/pages/AdmitCards.tsx";
+import VerifyAdmitCard from "@/pages/VerifyAdmitCard.tsx";
 
 const queryClient = new QueryClient();
 
@@ -72,12 +76,16 @@ function AppRoutes() {
         <Route path="/report-cards/:examId" element={<ProtectedRoute><ReportCards /></ProtectedRoute>} />
         <Route path="/verify" element={<Verify />} />
         <Route path="/verify-certificate" element={<VerifyCertificate />} />
-        <Route path="/promote-students" element={<PromoteStudents />} />
-        <Route path="/students/:id" element={<StudentDetail />} />
+        <Route path="/verify-admit-card" element={<VerifyAdmitCard />} />
+        <Route path="/promote-students" element={<ProtectedRoute><PromoteStudents /></ProtectedRoute>} />
+        <Route path="/students/:id" element={<ProtectedRoute><StudentDetail /></ProtectedRoute>} />
+        <Route path="/receipt/:id" element={<ProtectedRoute><ReceiptView /></ProtectedRoute>} />
 
         <Route path="/sms-payment-success" element={<SMSPaymentSuccess />} />
         <Route path="/sms-payment-fail" element={<SMSPaymentFail />} />
         <Route path="/sms-payment-cancel" element={<SMSPaymentCancel />} />
+        <Route path="/admit-cards" element={<ProtectedRoute><AdmitCards /></ProtectedRoute>} />
+        <Route path="/accounts" element={<ProtectedRoute><AccountingPage /></ProtectedRoute>} />
 
         <Route path="*" element={<NotFound />} />
     </Routes>

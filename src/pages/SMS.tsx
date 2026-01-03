@@ -1,4 +1,4 @@
-// FILE: src/pages/SMS.tsx - ACCURATE PER-RECIPIENT SMS CALCULATION
+// FILE: src/pages/SMS.tsx - ENHANCED TEMPLATES FOR SALES
 import { useState, useEffect, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -19,27 +19,44 @@ import { initiateSMSRecharge } from '@/lib/sms-payment';
 import { cn } from '@/lib/utils';
 import {
     MessageSquare, Send, Loader2, Users, CreditCard, Plus, Sparkles, TrendingUp,
-    Zap, History, CheckCircle, XCircle, DollarSign, Gem, Star, Flame, Info
+    Zap, History, CheckCircle, XCircle, DollarSign, Gem, Star, Flame, Info,
+    GraduationCap, Megaphone
 } from 'lucide-react';
 
+// --- NEW TEMPLATES ADDED HERE ---
 const SMS_TEMPLATES = {
     attendance: [
         { id: 'absence_alert', name: 'Absence Alert', message: 'প্রিয় {parent_name}, {student_name} আজ ({date}) অনুপস্থিত। Class: {class}, Roll: {roll}। - {school_name}' },
-        { id: 'present_confirm', name: 'Present', message: 'প্রিয় {parent_name}, {student_name} আজ উপস্থিত। - {school_name}' }
+        { id: 'present_confirm', name: 'Present Info', message: 'প্রিয় {parent_name}, {student_name} আজ স্কুলে উপস্থিত হয়েছে। - {school_name}' },
+        { id: 'late_entry', name: 'Late Entry', message: 'প্রিয় অভিভাবক, {student_name} আজ দেরিতে স্কুলে প্রবেশ করেছে। - {school_name}' }
+    ],
+    academic: [
+        { id: 'result_published', name: '🎓 Result Published', message: 'প্রিয় {parent_name}, {student_name}-এর {exam_name} পরীক্ষার ফলাফল প্রকাশ করা হয়েছে। জিপিএ: {gpa}। বিস্তারিত অফিসে দেখুন। - {school_name}' },
+        { id: 'exam_schedule', name: '📅 Exam Routine', message: 'নোটিশ: আগামী {date} থেকে {exam_name} পরীক্ষা শুরু হবে। প্রবেশপত্র সংগ্রহ করুন। - {school_name}' },
+        { id: 'progress_report', name: '📈 Progress Report', message: 'প্রিয় অভিভাবক, আগামী {date} তারিখে প্রগ্রেস রিপোর্ট প্রদান করা হবে। উপস্থিত থাকার অনুরোধ রইল। - {school_name}' }
     ],
     finance: [
-        { id: 'fee_due', name: 'Fee Due', message: 'প্রিয় {parent_name}, {student_name} এর ফি বকেয়া ৳{due_amount}। Invoice: {invoice_no}। - {school_name}' },
-        { id: 'payment_success', name: 'Payment', message: 'প্রিয় {parent_name}, {student_name} এর ৳{paid_amount} ফি পরিশোধ হয়েছে। ধন্যবাদ। - {school_name}' }
+        { id: 'fee_due', name: 'Fee Due Warning', message: 'প্রিয় {parent_name}, {student_name} এর ফি বকেয়া ৳{due_amount}। পরিশোধের শেষ তারিখ {date}। - {school_name}' },
+        { id: 'payment_success', name: 'Payment Received', message: 'ধন্যবাদ! {student_name} এর ৳{paid_amount} ফি গ্রহণ করা হলো। Invoice: {invoice_no}। - {school_name}' }
     ],
-    general: [{ id: 'custom', name: 'Custom', message: 'প্রিয় {parent_name}, আপনার বার্তা। - {school_name}' }]
+    marketing: [
+        { id: 'admission_open', name: '📢 Admission Open', message: 'ভর্তি চলছে! {school_name}-এ নতুন শিক্ষাবর্ষে ভর্তি চলছে। আপনার পরিচিতদের জানাতে অনুরোধ রইল। আসন সংখ্যা সীমিত।' },
+        { id: 'school_closed', name: '🏖️ Holiday Notice', message: 'নোটিশ: {event_name} উপলক্ষে আগামী {date} স্কুল বন্ধ থাকবে। - {school_name}' },
+        { id: 'greeting', name: '🎉 Festival Wish', message: 'পবিত্র {event_name} উপলক্ষে আপনাকে ও আপনার পরিবারকে শুভেচ্ছা। - {school_name}' }
+    ]
 };
 
-const VARIABLES = ['{parent_name}', '{student_name}', '{class}', '{roll}', '{date}', '{total_amount}', '{due_amount}', '{invoice_no}', '{school_name}'];
+const VARIABLES = [
+    '{parent_name}', '{student_name}', '{class}', '{roll}', '{date}',
+    '{total_amount}', '{due_amount}', '{invoice_no}', '{school_name}',
+    '{exam_name}', '{gpa}', '{event_name}'
+];
 
 const RECHARGE_PACKAGES = [
     { sms: 500, price: 500, bonus: 0, badge: 'Starter', color: 'blue' },
-    { sms: 1000, price: 990, bonus: 0, badge: 'Popular', color: 'purple' },
-    { sms: 1500, price: 1490, bonus: 0, badge: 'Best Value', color: 'green' }
+    { sms: 2000, price: 1900, bonus: 100, badge: 'Popular', color: 'purple' },
+    { sms: 5000, price: 4500, bonus: 500, badge: 'Best Value', color: 'green' },
+    { sms: 10000, price: 8500, bonus: 1500, badge: 'Institution', color: 'orange' }
 ];
 
 export default function SMS() {
@@ -95,6 +112,7 @@ export default function SMS() {
         const { data } = await query;
         let filteredStudents = data || [];
 
+        // Apply Local Filters
         if (attendanceFilter) {
             const today = new Date().toISOString().split('T')[0];
             const { data: attendance } = await supabase.from('attendance').select('student_id, status').eq('date', today).eq('status', attendanceFilter);
@@ -140,6 +158,9 @@ export default function SMS() {
         const dueAmount = totalAmount - paidAmount;
         const firstInvoice = student.invoices?.[0];
 
+        // Fetch school name from local storage or default
+        const schoolName = 'Global Quranic School'; // In real app, fetch from school_settings
+
         const variables: Record<string, string> = {
             '{parent_name}': student.guardians?.father_name || student.guardians?.mother_name || 'অভিভাবক',
             '{student_name}': student.name_en || student.name_bn || '',
@@ -147,13 +168,17 @@ export default function SMS() {
             '{section}': student.sections?.name || '',
             '{roll}': student.roll?.toString() || '',
             '{student_id}': student.student_id || '',
-            '{school_name}': 'Global Quranic School',
+            '{school_name}': schoolName,
             '{date}': today.toLocaleDateString('en-GB'),
             '{month}': today.toLocaleDateString('en-US', { month: 'long' }),
             '{total_amount}': totalAmount.toString(),
             '{due_amount}': dueAmount.toString(),
             '{paid_amount}': paidAmount.toString(),
-            '{invoice_no}': firstInvoice?.invoice_no || ''
+            '{invoice_no}': firstInvoice?.invoice_no || '',
+            // Placeholder defaults for manual edit items
+            '{exam_name}': 'Annual',
+            '{gpa}': '5.00',
+            '{event_name}': 'Eid'
         };
 
         let result = template;
@@ -163,7 +188,7 @@ export default function SMS() {
         return result;
     };
 
-    // ACCURATE: Calculate SMS for each recipient
+    // ACCURATE: Calculate SMS for each recipient to avoid underestimating costs
     const accurateSMSCalculation = useMemo(() => {
         if (!message.trim()) return { totalSMS: 0, recipients: 0, minSMS: 0, maxSMS: 0, avgSMS: 0 };
 
@@ -177,13 +202,11 @@ export default function SMS() {
         let totalSMS = 0;
         let minSMS = Infinity;
         let maxSMS = 0;
-        const smsPerRecipient: number[] = [];
 
         recipients.forEach(student => {
             const finalMessage = replaceVariables(message, student);
             const smsCount = getSMSInfo(finalMessage).count;
             totalSMS += smsCount;
-            smsPerRecipient.push(smsCount);
             if (smsCount < minSMS) minSMS = smsCount;
             if (smsCount > maxSMS) maxSMS = smsCount;
         });
@@ -222,7 +245,7 @@ export default function SMS() {
         }
 
         if (recipients.length === 0) {
-            toast({ title: "Error", description: "No recipients", variant: "destructive" });
+            toast({ title: "Error", description: "No recipients found", variant: "destructive" });
             return;
         }
 
@@ -233,14 +256,14 @@ export default function SMS() {
         }).filter(Boolean) as { mobile: string; message: string }[];
 
         if (smsData.length === 0) {
-            toast({ title: "Error", description: "No valid phones", variant: "destructive" });
+            toast({ title: "Error", description: "No valid phone numbers found", variant: "destructive" });
             return;
         }
 
         setLoading(true);
         try {
             const sentCount = await sendBulkSMS(smsData);
-            toast({ title: "✓ Sent", description: `${sentCount} messages` });
+            toast({ title: "✓ Sent Successfully", description: `${sentCount} messages sent` });
             loadBalance();
             loadHistory();
             setMessage('');
@@ -256,7 +279,7 @@ export default function SMS() {
     const handleRecharge = async (packageData: any) => {
         try {
             setRechargeOpen(false);
-            toast({ title: "Redirecting...", description: "Opening payment..." });
+            toast({ title: "Redirecting...", description: "Opening payment gateway..." });
             await initiateSMSRecharge(packageData);
         } catch (error: any) {
             toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -268,64 +291,88 @@ export default function SMS() {
     return (
         <MainLayout>
             <div className="space-y-6">
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 p-8">
-                    <div className="absolute inset-0 bg-grid-white/10" />
-                    <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
-                                <MessageSquare className="w-8 h-8 text-white" />
-                            </div>
-                            <div>
-                                <h1 className="text-4xl font-bold text-white flex items-center gap-2">
-                                    SMS Center <Sparkles className="w-6 h-6" />
-                                </h1>
-                                <p className="text-white/90 text-lg">Engage parents instantly</p>
-                            </div>
-                        </div>
+                {/* Hero / Balance Section */}
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-900 via-purple-800 to-indigo-900 p-8 shadow-xl">
+                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
+                    <div className="absolute -bottom-8 left-0 w-64 h-64 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
 
-                        <div className="flex flex-wrap gap-3">
-                            <Card className="bg-white/20 backdrop-blur-sm border-white/30 text-white">
+                    <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <Card className="bg-white/10 backdrop-blur-md border-white/20 text-white min-w-[160px] float-left">
                                 <CardContent className="p-4">
                                     <div className="flex items-center gap-3">
-                                        <CreditCard className="w-6 h-6" />
+                                        <div className="p-2 bg-green-500/20 rounded-lg">
+                                            <CreditCard className="w-5 h-5 text-green-400" />
+                                        </div>
                                         <div>
-                                            <p className="text-sm text-white/80">Balance</p>
-                                            <p className="text-3xl font-bold">{balance.toLocaleString()}</p>
+                                            <p className="text-xs text-indigo-200 uppercase font-semibold">Balance</p>
+                                            <p className="text-2xl font-bold">{balance.toLocaleString()}</p>
                                         </div>
                                     </div>
                                 </CardContent>
                             </Card>
-                            <Button size="lg" onClick={() => setRechargeOpen(true)} className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border-white/30">
-                                <Plus className="w-5 h-5 mr-2" />Recharge
+                            <div>
+                                <h1 className="text-4xl font-bold text-white flex items-center gap-2">
+                                    SMS Center
+                                </h1>
+                                <p className="text-indigo-200 text-lg">Instant Parent Communication</p>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-3">
+
+                            <Button size="lg" onClick={() => setRechargeOpen(true)} className="h-16 bg-white text-indigo-900 hover:bg-indigo-50 border-0 font-bold shadow-lg">
+                                <Plus className="w-5 h-5 mr-2" />Recharge Now
                             </Button>
-                            <Button size="lg" onClick={() => setHistoryOpen(true)} className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border-white/30">
-                                <History className="w-5 h-5 mr-2" />History
+                            <Button size="lg" onClick={() => setHistoryOpen(true)} variant="outline" className="h-16 bg-white text-indigo-900 hover:bg-indigo-50 border-0 font-bold shadow-lg">
+                                <History className="w-5 h-5" />
                             </Button>
                         </div>
                     </div>
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-3">
-                    <Card className="lg:col-span-2 border-2 shadow-xl">
-                        <CardHeader className="border-b bg-gradient-to-r from-purple-50 to-indigo-50">
-                            <CardTitle className="flex items-center gap-2"><Zap className="w-5 h-5 text-purple-600" />Compose</CardTitle>
+                    {/* LEFT COLUMN: COMPOSER */}
+                    <Card className="lg:col-span-2 border shadow-lg flex flex-col h-full">
+                        <CardHeader className="border-b bg-gray-50/50 pb-4">
+                            <CardTitle className="flex items-center gap-2 text-gray-800">
+                                <Zap className="w-5 h-5 text-purple-600 fill-purple-600" />
+                                Compose Message
+                            </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-6 space-y-6">
-                            <Tabs defaultValue="attendance">
-                                <TabsList className="grid w-full grid-cols-3">
-                                    <TabsTrigger value="attendance">Attendance</TabsTrigger>
-                                    <TabsTrigger value="finance">Finance</TabsTrigger>
-                                    <TabsTrigger value="general">Custom</TabsTrigger>
+                        <CardContent className="p-6 space-y-6 flex-1">
+                            <Tabs defaultValue="academic" className="w-full">
+                                <TabsList className="grid w-full grid-cols-4 bg-gray-100 p-1">
+                                    <TabsTrigger value="academic" className="data-[state=active]:bg-white data-[state=active]:text-blue-600">Academic</TabsTrigger>
+                                    <TabsTrigger value="attendance" className="data-[state=active]:bg-white data-[state=active]:text-purple-600">Attendance</TabsTrigger>
+                                    <TabsTrigger value="finance" className="data-[state=active]:bg-white data-[state=active]:text-green-600">Fees</TabsTrigger>
+                                    <TabsTrigger value="marketing" className="data-[state=active]:bg-white data-[state=active]:text-orange-600">Notices</TabsTrigger>
                                 </TabsList>
+
                                 {Object.entries(SMS_TEMPLATES).map(([category, templates]) => (
-                                    <TabsContent key={category} value={category}>
-                                        <ScrollArea className="h-[180px]">
-                                            <div className="space-y-2 pr-4">
+                                    <TabsContent key={category} value={category} className="mt-4">
+                                        <ScrollArea className="h-[140px] rounded-lg border bg-gray-50/50 p-2">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                 {templates.map(template => (
-                                                    <Button key={template.id} variant={selectedTemplate === template.id ? 'default' : 'outline'} className={cn("w-full justify-start text-left h-auto py-2.5 px-3", selectedTemplate === template.id && "bg-purple-600")} onClick={() => selectTemplate(template.id)}>
+                                                    <Button
+                                                        key={template.id}
+                                                        variant="outline"
+                                                        className={cn(
+                                                            "justify-start text-left h-auto py-3 px-4 border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all",
+                                                            selectedTemplate === template.id && "border-purple-600 bg-purple-50 ring-1 ring-purple-600"
+                                                        )}
+                                                        onClick={() => selectTemplate(template.id)}
+                                                    >
                                                         <div className="w-full">
-                                                            <div className="font-semibold text-xs mb-0.5">{template.name}</div>
-                                                            <div className="text-[10px] opacity-80 line-clamp-2 whitespace-normal leading-tight">{template.message}</div>
+                                                            <div className="font-bold text-xs mb-1 flex items-center gap-2">
+                                                                {category === 'academic' && <GraduationCap className="w-3 h-3 text-blue-500" />}
+                                                                {category === 'marketing' && <Megaphone className="w-3 h-3 text-orange-500" />}
+                                                                {template.name}
+                                                            </div>
+                                                            <div className="text-[10px] text-muted-foreground line-clamp-2 whitespace-normal leading-relaxed">
+                                                                {template.message}
+                                                            </div>
                                                         </div>
                                                     </Button>
                                                 ))}
@@ -335,139 +382,212 @@ export default function SMS() {
                                 ))}
                             </Tabs>
 
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <label className="text-sm font-semibold">Message *</label>
-                                    <Button variant="ghost" size="sm" onClick={() => setMessage('')}>Clear</Button>
-                                </div>
-                                <Textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type..." rows={6} className="font-bengali text-base resize-none border-2" />
-                                <div className="flex items-center justify-between text-sm">
-                                    <div className="flex items-center gap-3">
-                                        <Badge variant="outline">{message.length} chars</Badge>
-                                        <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                                            {accurateSMSCalculation.avgSMS} avg SMS
+                                    <label className="text-sm font-semibold text-gray-700">Message Content</label>
+                                    <div className="flex gap-2">
+                                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                                            Tip: Update text inside {'{}'}
                                         </Badge>
-                                        {accurateSMSCalculation.minSMS !== accurateSMSCalculation.maxSMS && (
-                                            <Badge variant="outline" className="text-xs">
-                                                {accurateSMSCalculation.minSMS}-{accurateSMSCalculation.maxSMS} SMS range
-                                            </Badge>
-                                        )}
+                                        <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setMessage('')}>Clear</Button>
                                     </div>
-                                    <span className="text-xs text-muted-foreground">160 chars = 1 SMS</span>
+                                </div>
+                                <Textarea
+                                    value={message}
+                                    onChange={(e) => setMessage(e.target.value)}
+                                    placeholder="Select a template or type your message here..."
+                                    rows={5}
+                                    className="font-bengali text-base resize-none border-gray-300 focus:border-purple-500 focus:ring-purple-500 min-h-[120px]"
+                                />
+
+                                {/* SMS Counter Stats */}
+                                <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border">
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-xs font-medium text-gray-500">Characters: <span className="text-gray-900 font-bold">{message.length}</span></div>
+                                        <div className="h-4 w-px bg-gray-300"></div>
+                                        <Badge variant={accurateSMSCalculation.maxSMS > 1 ? "secondary" : "outline"} className={cn("text-xs", accurateSMSCalculation.maxSMS > 1 && "bg-orange-100 text-orange-700")}>
+                                            {accurateSMSCalculation.avgSMS} SMS / person
+                                        </Badge>
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground">
+                                        Note: Bengali characters take more space (70 chars = 1 SMS)
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="border-2 border-dashed rounded-lg p-3 bg-blue-50">
+                            <div className="bg-blue-50/50 rounded-lg p-3 border border-blue-100">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Sparkles className="w-4 h-4 text-blue-600" />
-                                    <h4 className="font-semibold text-xs">Variables</h4>
+                                    <h4 className="font-semibold text-xs text-blue-900">Dynamic Variables</h4>
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
                                     {VARIABLES.map(v => (
-                                        <Button key={v} variant="outline" size="sm" onClick={() => insertVariable(v)} className="text-[10px] h-7 px-2">
-                                            <Plus className="w-3 h-3 mr-0.5" />{v}
-                                        </Button>
+                                        <button
+                                            key={v}
+                                            onClick={() => insertVariable(v)}
+                                            className="px-2 py-1 rounded bg-white border border-blue-200 text-[10px] text-blue-700 hover:bg-blue-50 hover:border-blue-300 transition-colors cursor-pointer"
+                                        >
+                                            {v}
+                                        </button>
                                     ))}
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
+                    {/* RIGHT COLUMN: RECIPIENTS & SEND */}
                     <div className="space-y-6">
-                        <Card className="border-2">
-                            <CardHeader className="bg-green-50"><CardTitle className="flex items-center gap-2"><Users className="w-5 h-5 text-green-600" />Recipients</CardTitle></CardHeader>
+                        <Card className="border shadow-md">
+                            <CardHeader className="bg-gray-50 py-3">
+                                <CardTitle className="flex items-center gap-2 text-sm text-gray-700">
+                                    <Users className="w-4 h-4" /> Select Recipients
+                                </CardTitle>
+                            </CardHeader>
                             <CardContent className="p-4 space-y-4">
-                                <SearchableSelect options={[{ value: 'all', label: '📢 All' }, { value: 'class', label: '🎓 Class' }, { value: 'individual', label: '👤 Select' }]} value={recipientType} onValueChange={setRecipientType} />
+                                <div className="space-y-1">
+                                    <label className="text-xs font-medium text-gray-500">Send To</label>
+                                    <SearchableSelect
+                                        options={[
+                                            { value: 'all', label: '📢 All Students' },
+                                            { value: 'class', label: '🎓 Specific Class' },
+                                            { value: 'individual', label: '👤 Specific Students' }
+                                        ]}
+                                        value={recipientType}
+                                        onValueChange={setRecipientType}
+                                    />
+                                </div>
+
                                 {recipientType === 'class' && (
-                                    <>
-                                        <SearchableSelect options={classes.map(c => ({ value: c.id, label: c.name }))} value={selectedClass} onValueChange={setSelectedClass} placeholder="Class" />
-                                        {selectedClass && <SearchableSelect options={[{ value: '', label: 'All' }, ...sections.map(s => ({ value: s.id, label: s.name }))]} value={selectedSection} onValueChange={setSelectedSection} />}
-                                    </>
+                                    <div className="grid grid-cols-2 gap-2 animate-in slide-in-from-top-2">
+                                        <SearchableSelect options={classes.map(c => ({ value: c.id, label: c.name }))} value={selectedClass} onValueChange={setSelectedClass} placeholder="Select Class" />
+                                        <SearchableSelect options={[{ value: '', label: 'All Sections' }, ...sections.map(s => ({ value: s.id, label: s.name }))]} value={selectedSection} onValueChange={setSelectedSection} placeholder="Section (Opt)" disabled={!selectedClass} />
+                                    </div>
                                 )}
-                                <SearchableSelect options={[{ value: '', label: 'All' }, { value: 'present', label: '✓ Present' }, { value: 'absent', label: '✗ Absent' }]} value={attendanceFilter} onValueChange={setAttendanceFilter} />
-                                <SearchableSelect options={[{ value: '', label: 'All' }, { value: 'due', label: '💰 Due' }, { value: 'paid', label: '✓ Paid' }]} value={feeFilter} onValueChange={setFeeFilter} />
+
+                                {/* Filters */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] uppercase font-bold text-gray-400">Attendance</label>
+                                        <SearchableSelect options={[{ value: '', label: 'Everyone' }, { value: 'present', label: '✓ Present Today' }, { value: 'absent', label: '✗ Absent Today' }]} value={attendanceFilter} onValueChange={setAttendanceFilter} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] uppercase font-bold text-gray-400">Fees Status</label>
+                                        <SearchableSelect options={[{ value: '', label: 'Everyone' }, { value: 'due', label: '💰 Has Dues' }, { value: 'paid', label: '✓ Paid Full' }]} value={feeFilter} onValueChange={setFeeFilter} />
+                                    </div>
+                                </div>
+
                                 {recipientType === 'individual' && (
-                                    <>
-                                        <Input placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                                        <ScrollArea className="h-[200px] border-2 rounded p-2">
-                                            {filteredStudents.map(s => (
-                                                <div key={s.id} className="flex items-center gap-2 mb-1.5 p-1.5 hover:bg-gray-50 rounded">
-                                                    <Checkbox checked={selectedStudents.includes(s.id)} onCheckedChange={(checked) => checked ? setSelectedStudents([...selectedStudents, s.id]) : setSelectedStudents(selectedStudents.filter(id => id !== s.id))} />
-                                                    <div className="flex-1">
-                                                        <p className="text-xs font-medium">{s.name_en}</p>
-                                                        <p className="text-[10px] text-muted-foreground">Roll {s.roll}</p>
+                                    <div className="animate-in fade-in">
+                                        <Input placeholder="Search student..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="mb-2 h-8 text-xs" />
+                                        <ScrollArea className="h-[180px] border rounded-md bg-white p-2">
+                                            {filteredStudents.length > 0 ? filteredStudents.map(s => (
+                                                <div key={s.id} className="flex items-center gap-2 mb-1 p-1.5 hover:bg-gray-50 rounded cursor-pointer" onClick={() => {
+                                                    selectedStudents.includes(s.id)
+                                                        ? setSelectedStudents(selectedStudents.filter(id => id !== s.id))
+                                                        : setSelectedStudents([...selectedStudents, s.id])
+                                                }}>
+                                                    <Checkbox checked={selectedStudents.includes(s.id)} />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-medium truncate">{s.name_en}</p>
+                                                        <p className="text-[10px] text-muted-foreground">Roll: {s.roll} • {s.classes?.name}</p>
                                                     </div>
                                                 </div>
-                                            ))}
+                                            )) : (
+                                                <div className="text-center py-4 text-xs text-muted-foreground">No students found</div>
+                                            )}
                                         </ScrollArea>
-                                    </>
+                                    </div>
                                 )}
                             </CardContent>
                         </Card>
 
-                        <Card className="border-2 bg-purple-50">
-                            <CardHeader><CardTitle className="flex items-center gap-2 text-base"><TrendingUp className="w-4 h-4" />Summary</CardTitle></CardHeader>
-                            <CardContent className="space-y-3">
-                                <div className="flex justify-between text-sm">
-                                    <span>Recipients</span>
-                                    <Badge variant="secondary">{accurateSMSCalculation.recipients}</Badge>
+                        {/* SUMMARY & SEND CARD */}
+                        <Card className="border-2 border-indigo-100 bg-gradient-to-br from-white to-indigo-50/50 shadow-lg">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center gap-2 text-base text-indigo-900">
+                                    <TrendingUp className="w-4 h-4" /> Cost Summary
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white p-2 rounded border text-center">
+                                        <div className="text-[10px] text-muted-foreground uppercase">Recipients</div>
+                                        <div className="text-xl font-bold text-gray-800">{accurateSMSCalculation.recipients}</div>
+                                    </div>
+                                    <div className="bg-white p-2 rounded border text-center border-indigo-200">
+                                        <div className="text-[10px] text-indigo-600 uppercase font-bold">Total Cost</div>
+                                        <div className="text-xl font-bold text-indigo-700">{accurateSMSCalculation.totalSMS} SMS</div>
+                                    </div>
                                 </div>
-                                <div className="flex justify-between text-sm">
-                  <span className="flex items-center gap-1">
-                    Total SMS
-                    <Info className="w-3 h-3 text-muted-foreground" />
-                  </span>
-                                    <Badge className="bg-blue-600 text-base font-bold">{accurateSMSCalculation.totalSMS}</Badge>
-                                </div>
-                                {accurateSMSCalculation.recipients > 0 && (
-                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-700">
-                                        <div className="flex items-center gap-1 mb-1">
-                                            <Info className="w-3 h-3" />
-                                            <span className="font-semibold">Calculated per recipient</span>
-                                        </div>
-                                        <div className="text-[10px] space-y-0.5">
-                                            <div>Avg: {accurateSMSCalculation.avgSMS} SMS/person</div>
-                                            <div>Range: {accurateSMSCalculation.minSMS}-{accurateSMSCalculation.maxSMS} SMS</div>
-                                        </div>
+
+                                {accurateSMSCalculation.recipients > 0 && accurateSMSCalculation.totalSMS > balance && (
+                                    <div className="bg-red-50 text-red-700 text-xs p-2 rounded flex items-center gap-2 border border-red-200">
+                                        <XCircle className="w-4 h-4" />
+                                        Insufficient balance! Needs {accurateSMSCalculation.totalSMS - balance} more.
                                     </div>
                                 )}
-                                <Button onClick={sendSMS} disabled={loading || balance < accurateSMSCalculation.totalSMS || accurateSMSCalculation.recipients === 0} className="w-full h-11 bg-gradient-to-r from-purple-600 to-indigo-600 mt-2">
-                                    {loading ? <Loader2 className="animate-spin mr-2" /> : <Send className="mr-2" />}
-                                    Send {accurateSMSCalculation.totalSMS} SMS
+
+                                <Button
+                                    onClick={sendSMS}
+                                    disabled={loading || balance < accurateSMSCalculation.totalSMS || accurateSMSCalculation.recipients === 0}
+                                    className="w-full h-12 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all text-base font-bold"
+                                >
+                                    {loading ? <Loader2 className="animate-spin mr-2" /> : <Send className="mr-2 w-5 h-5" />}
+                                    Send Message
                                 </Button>
                             </CardContent>
                         </Card>
                     </div>
                 </div>
 
-                {/* Recharge */}
+                {/* RECHARGE MODAL */}
                 <Dialog open={rechargeOpen} onOpenChange={setRechargeOpen}>
-                    <DialogContent className="max-w-2xl">
-                        <DialogHeader><DialogTitle className="flex items-center gap-2 text-xl"><Gem className="w-5 h-5 text-purple-600" />Recharge SMS</DialogTitle></DialogHeader>
-                        <div className="grid md:grid-cols-3 gap-4 p-2">
+                    <DialogContent className="max-w-3xl">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2 text-2xl">
+                                <Gem className="w-6 h-6 text-purple-600" /> Recharge Packages
+                            </DialogTitle>
+                        </DialogHeader>
+                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 p-2">
                             {RECHARGE_PACKAGES.map(pkg => (
-                                <Card key={pkg.sms} className={cn("border-2 hover:border-purple-400 hover:shadow-xl transition-all cursor-pointer relative", pkg.badge === 'Best Value' && "border-green-400 ring-2 ring-green-200", pkg.badge === 'Popular' && "border-purple-400")} onClick={() => handleRecharge(pkg)}>
+                                <Card
+                                    key={pkg.sms}
+                                    className={cn(
+                                        "border-2 hover:shadow-xl transition-all cursor-pointer relative group overflow-hidden",
+                                        pkg.badge === 'Best Value' ? "border-green-400 ring-4 ring-green-50" : "border-gray-200 hover:border-purple-300"
+                                    )}
+                                    onClick={() => handleRecharge(pkg)}
+                                >
                                     {pkg.badge && (
-                                        <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-10">
-                                            <Badge className={cn("text-xs font-bold px-2.5 py-0.5 shadow-md", pkg.color === 'green' && "bg-green-500", pkg.color === 'purple' && "bg-purple-500", pkg.color === 'blue' && "bg-blue-500")}>
-                                                {pkg.badge === 'Best Value' && <Star className="w-3 h-3 mr-1" />}
-                                                {pkg.badge === 'Popular' && <Flame className="w-3 h-3 mr-1" />}
+                                        <div className="absolute top-0 right-0">
+                                            <Badge className={cn(
+                                                "rounded-tl-none rounded-br-none rounded-tr-md rounded-bl-xl text-[10px] px-3 py-1 uppercase tracking-wider font-bold shadow-sm",
+                                                pkg.color === 'green' && "bg-green-500",
+                                                pkg.color === 'purple' && "bg-purple-600",
+                                                pkg.color === 'orange' && "bg-orange-500",
+                                                pkg.color === 'blue' && "bg-blue-500"
+                                            )}>
                                                 {pkg.badge}
                                             </Badge>
                                         </div>
                                     )}
-                                    <CardContent className="p-5 text-center space-y-2.5">
-                                        <div className="text-3xl font-bold text-purple-600">{pkg.sms.toLocaleString()}</div>
-                                        <div className="text-xs text-muted-foreground font-medium">SMS</div>
-                                        {pkg.bonus > 0 && (
-                                            <div>
-                                                <Badge className="bg-green-100 text-green-700 text-xs px-2 py-0.5 font-bold">+{pkg.bonus} BONUS</Badge>
-                                                <div className="text-[10px] text-green-600 font-semibold mt-1">= {(pkg.sms + pkg.bonus).toLocaleString()}</div>
-                                            </div>
-                                        )}
-                                        <div className="text-3xl font-bold py-1">৳{pkg.price}</div>
-                                        <Button className="w-full h-9 text-sm font-semibold shadow-md hover:shadow-lg">
-                                            <DollarSign className="w-3.5 h-3.5 mr-1" />Buy Now
+                                    <CardContent className="p-5 text-center flex flex-col items-center justify-between h-full pt-8">
+                                        <div className="space-y-1">
+                                            <div className="text-3xl font-extrabold text-gray-800">{pkg.sms.toLocaleString()}</div>
+                                            <div className="text-xs text-muted-foreground uppercase font-semibold tracking-widest">SMS Credits</div>
+                                        </div>
+
+                                        <div className="my-4 w-full space-y-2">
+                                            <div className="text-2xl font-bold text-purple-700">৳{pkg.price}</div>
+                                            {pkg.bonus > 0 ? (
+                                                <div className="text-xs bg-green-50 text-green-700 py-1 px-2 rounded-full font-bold border border-green-100">
+                                                    +{pkg.bonus} Free Bonus
+                                                </div>
+                                            ) : <div className="h-6"></div>}
+                                        </div>
+
+                                        <Button className={cn("w-full font-bold", pkg.badge === 'Best Value' ? "bg-green-600 hover:bg-green-700" : "bg-gray-900 hover:bg-gray-800")}>
+                                            Select
                                         </Button>
                                     </CardContent>
                                 </Card>
@@ -476,39 +596,39 @@ export default function SMS() {
                     </DialogContent>
                 </Dialog>
 
-                {/* History */}
+                {/* HISTORY MODAL */}
                 <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
-                    <DialogContent className="max-w-4xl max-h-[80vh]">
-                        <DialogHeader><DialogTitle className="flex items-center gap-2"><History className="w-5 h-5" />SMS History</DialogTitle></DialogHeader>
-                        <ScrollArea className="h-[500px]">
+                    <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+                        <DialogHeader><DialogTitle className="flex items-center gap-2"><History className="w-5 h-5" /> Recent Log</DialogTitle></DialogHeader>
+                        <ScrollArea className="flex-1">
                             <Table>
                                 <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="text-xs">Date</TableHead>
-                                        <TableHead className="text-xs">Recipient</TableHead>
-                                        <TableHead className="text-xs">Message</TableHead>
-                                        <TableHead className="text-xs">Status</TableHead>
-                                        <TableHead className="text-xs">Total SMS</TableHead>
+                                    <TableRow className="bg-gray-50">
+                                        <TableHead className="w-[140px]">Date</TableHead>
+                                        <TableHead>Recipient</TableHead>
+                                        <TableHead>Message Preview</TableHead>
+                                        <TableHead className="text-center">Status</TableHead>
+                                        <TableHead className="text-right">Cost</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {smsHistory.map(log => (
                                         <TableRow key={log.id}>
-                                            <TableCell className="text-[10px]">{new Date(log.created_at).toLocaleString('en-GB', { hour12: false })}</TableCell>
-                                            <TableCell className="font-mono text-[10px]">{log.recipient_number}</TableCell>
-                                            <TableCell className="max-w-xs truncate text-[10px]">{log.message}</TableCell>
-                                            <TableCell>
+                                            <TableCell className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleString('en-GB')}</TableCell>
+                                            <TableCell className="font-mono text-xs font-semibold">{log.recipient_number}</TableCell>
+                                            <TableCell className="max-w-[200px] truncate text-xs text-gray-600" title={log.message}>{log.message}</TableCell>
+                                            <TableCell className="text-center">
                                                 {log.status === 'sent' ? (
-                                                    <Badge className="bg-green-100 text-green-700 text-[10px] px-1.5"><CheckCircle className="w-2.5 h-2.5 mr-0.5" />Sent</Badge>
+                                                    <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px] px-2">Sent</Badge>
                                                 ) : (
-                                                    <Badge variant="destructive" className="text-[10px] px-1.5"><XCircle className="w-2.5 h-2.5 mr-0.5" />Failed</Badge>
+                                                    <Badge variant="destructive" className="text-[10px]">Failed</Badge>
                                                 )}
                                             </TableCell>
-                                            <TableCell className="text-[10px] font-semibold">{log.sms_count}</TableCell>
+                                            <TableCell className="text-right font-medium text-xs">{log.sms_count}</TableCell>
                                         </TableRow>
                                     ))}
                                     {smsHistory.length === 0 && (
-                                        <TableRow><TableCell colSpan={5} className="text-center py-8 text-sm text-muted-foreground">No history</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground">No history found</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>

@@ -1,759 +1,499 @@
-// FILE: src/pages/Dashboard.tsx - WOW DASHBOARD WITH INSIGHTS
+// FILE: src/pages/Dashboard.tsx
 import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
 import {
-    Users,
-    UserCheck,
-    DollarSign,
-    TrendingUp,
-    Award,
-    Calendar,
-    AlertCircle,
-    Activity,
-    Zap,
-    MessageSquare,
-    GraduationCap,
-    Loader2,
-    Maximize,
-    X,
-    TrendingDown,
-    Target,
-    Crown
+    Maximize, Minimize, Activity, TrendingUp, Users, DollarSign,
+    Zap, ArrowUpRight, ArrowDownRight, Wallet, Loader2, Signal, WifiOff,
+    CalendarClock, Briefcase
 } from 'lucide-react';
 import {
-    LineChart,
-    Line,
-    BarChart,
-    Bar,
-    PieChart,
-    Pie,
-    Cell,
-    AreaChart,
-    Area,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    Legend,
-    ResponsiveContainer,
-    RadarChart,
-    PolarGrid,
-    PolarAngleAxis,
-    PolarRadiusAxis,
-    Radar,
-    ScatterChart,
-    Scatter,
-    ZAxis
+    AreaChart, Area, BarChart, Bar,
+    XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
+import {useNavigate} from "react-router-dom";
+
+// --- HOOKS ---
+const useLocalStorage = (key: string, initialValue: any) => {
+    const [storedValue, setStoredValue] = useState(() => {
+        try {
+            const item = window.localStorage.getItem(key);
+            return item ? JSON.parse(item) : initialValue;
+        } catch (error) {
+            return initialValue;
+        }
+    });
+    const setValue = (value: any) => {
+        try {
+            const valueToStore = value instanceof Function ? value(storedValue) : value;
+            setStoredValue(valueToStore);
+            window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        } catch (error) {
+            console.log(error);
+        }
+    };
+    return [storedValue, setValue];
+};
 
 const COLORS = {
     primary: '#3b82f6',
-    success: '#10b981',
-    warning: '#f59e0b',
-    danger: '#ef4444',
-    info: '#6366f1',
-    purple: '#a855f7',
-    pink: '#ec4899',
-    teal: '#14b8a6'
+    purple: '#8b5cf6',
 };
 
 export default function Dashboard() {
-    const { user } = useAuth();
+    const { toast } = useToast();
     const [loading, setLoading] = useState(true);
-    const [fullscreen, setFullscreen] = useState(false);
 
-    // Stats
-    const [stats, setStats] = useState({
-        totalStudents: 0,
-        activeStudents: 0,
-        presentToday: 0,
-        collectedThisMonth: 0,
-        pendingFees: 0,
-        smsBalance: 0,
-        attendanceRate: 0,
-        feeCollectionRate: 0
+    const [realtimeMode, setRealtimeMode] = useLocalStorage('dash_realtime', true);
+    const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+    const [isFullScreen, setIsFullScreen] = useState(false);
+    const [monthlyTarget, setMonthlyTarget] = useState(3500000); // Default, updates from DB
+    const [dynamicTarget, setDynamicTarget] = useState(0);
+
+    // Data States
+    const [kpi, setKpi] = useState({
+        revenue: 0, revenueGrowth: 0,
+        students: 0, activeStudents: 0,
+        attendance: 0,
+        cashflow: 0
+    });
+    const [charts, setCharts] = useState<any>({
+        revenueTrend: [],
+        attendanceTrend: [],
+    });
+    const [feed, setFeed] = useState<any[]>([]);
+    const [financials, setFinancials] = useState({
+        dueNext7Days: 0,
+        pendingInvoicesCount: 0
     });
 
-    // Chart Data
-    const [attendanceTrend, setAttendanceTrend] = useState<any[]>([]);
-    const [monthlyRevenue, setMonthlyRevenue] = useState<any[]>([]);
-    const [classRankings, setClassRankings] = useState<any[]>([]);
-    const [topPerformers, setTopPerformers] = useState<any[]>([]);
-    const [attendanceByClass, setAttendanceByClass] = useState<any[]>([]);
-    const [feeCollectionByClass, setFeeCollectionByClass] = useState<any[]>([]);
-    const [performanceComparison, setPerformanceComparison] = useState<any[]>([]);
-    const [recentActivities, setRecentActivities] = useState<any[]>([]);
-
+    // --- FIX: FULL SCREEN SYNC ---
     useEffect(() => {
-        loadDashboardData();
+        const handleFullScreenChange = () => {
+            setIsFullScreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', handleFullScreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullScreenChange);
     }, []);
 
-    const loadDashboardData = async () => {
-        setLoading(true);
-        await Promise.all([
-            loadStats(),
-            loadAttendanceTrend(),
-            loadMonthlyRevenue(),
-            loadClassRankings(),
-            loadTopPerformers(),
-            loadAttendanceByClass(),
-            loadFeeCollectionByClass(),
-            loadPerformanceComparison(),
-            loadRecentActivities()
-        ]);
-        setLoading(false);
+    const toggleFullScreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+        } else {
+            if (document.exitFullscreen) document.exitFullscreen();
+        }
     };
 
-    const loadStats = async () => {
-        const { count: totalStudents } = await supabase
-            .from('students')
-            .select('*', { count: 'exact', head: true });
+    // --- DATA LOADERS ---
+    const loadFinancials = async () => {
+        const thisMonth = new Date();
+        const startOfMonth = new Date(thisMonth.getFullYear(), thisMonth.getMonth(), 1).toISOString();
+// --- NEW: Calculate Dynamic Target ---
+        // This calculates: If everyone pays their fees, how much should we get?
 
+        // A. Get active students count
         const { count: activeStudents } = await supabase
             .from('students')
             .select('*', { count: 'exact', head: true })
             .eq('status', 'active');
 
-        const today = new Date().toISOString().split('T')[0];
-        const { data: attendance } = await supabase
-            .from('attendance')
-            .select('status')
-            .eq('date', today);
+        // B. Get average monthly fee (or sum of all fee plans)
+        // For simplicity, let's assume an average fee or fetch from fee_plans
+        // Ideally: Sum of (Student x Their Class Fee)
 
-        const presentToday = attendance?.filter(a => a.status === 'present').length || 0;
+        // Fast estimation method:
+        // Fetch fee plans for all classes
+        const { data: feePlans } = await supabase.from('fee_plans').select('amount, class_id');
 
-        const { data: payments } = await supabase
-            .from('payments')
-            .select('amount, created_at');
+        // Calculate average monthly fee per student approx
+        const avgFee = feePlans
+            ? feePlans.reduce((sum, plan) => sum + Number(plan.amount), 0) / (feePlans.length || 1)
+            : 1500; // Default fallback if no plans set
 
-        const thisMonth = new Date();
-        const collectedThisMonth = payments?.filter(p => {
-            const pDate = new Date(p.created_at);
-            return pDate.getMonth() === thisMonth.getMonth() && pDate.getFullYear() === thisMonth.getFullYear();
-        }).reduce((sum, p) => sum + p.amount, 0) || 0;
+        const estimatedTarget = (activeStudents || 0) * avgFee;
 
-        const { data: invoices } = await supabase
-            .from('invoices')
-            .select('total, status');
+        setDynamicTarget(estimatedTarget);
+        // Revenue This Month
+        const { data: payments } = await supabase.from('payments').select('amount').gte('created_at', startOfMonth);
+        const currentRev = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
 
-        const pendingFees = invoices?.filter(i => i.status !== 'paid').reduce((sum, i) => sum + i.total, 0) || 0;
+        // Revenue Last Month
+        const startOfLastMonth = new Date(thisMonth.getFullYear(), thisMonth.getMonth() - 1, 1).toISOString();
+        const { data: lastPayments } = await supabase.from('payments').select('amount')
+            .gte('created_at', startOfLastMonth).lt('created_at', startOfMonth);
+        const lastRev = lastPayments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
 
-        const { data: smsCredits } = await supabase
-            .from('sms_credits')
-            .select('balance')
-            .single();
+        const growth = lastRev > 0 ? ((currentRev - lastRev) / lastRev) * 100 : 100;
 
-        const attendanceRate = activeStudents ? ((presentToday / activeStudents) * 100) : 0;
-        const totalInvoiceAmount = invoices?.reduce((sum, i) => sum + i.total, 0) || 0;
-        const totalRevenue = payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
-        const feeCollectionRate = totalInvoiceAmount ? ((totalRevenue / totalInvoiceAmount) * 100) : 0;
-
-        setStats({
-            totalStudents: totalStudents || 0,
-            activeStudents: activeStudents || 0,
-            presentToday,
-            collectedThisMonth,
-            pendingFees,
-            smsBalance: smsCredits?.balance || 0,
-            attendanceRate,
-            feeCollectionRate
-        });
-    };
-
-    const loadAttendanceTrend = async () => {
-        const days = [];
-        for (let i = 13; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            const dateStr = date.toISOString().split('T')[0];
-
-            const { data } = await supabase
-                .from('attendance')
-                .select('status')
-                .eq('date', dateStr);
-
-            const present = data?.filter(a => a.status === 'present').length || 0;
-            const total = data?.length || 0;
-            const rate = total > 0 ? (present / total) * 100 : 0;
-
-            days.push({
-                date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                rate: rate.toFixed(1),
-                present,
-                total
-            });
-        }
-        setAttendanceTrend(days);
-    };
-
-    const loadMonthlyRevenue = async () => {
+        // Chart Data (Last 6 Months)
         const months = [];
-        const currentDate = new Date();
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(); d.setMonth(d.getMonth() - i);
+            const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+            const end = new Date(d.getFullYear(), d.getMonth() + 1, 1).toISOString();
 
-        for (let i = 11; i >= 0; i--) {
-            const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-            const nextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1);
-
-            const { data } = await supabase
-                .from('payments')
-                .select('amount')
-                .gte('created_at', date.toISOString())
-                .lt('created_at', nextMonth.toISOString());
-
-            const total = data?.reduce((sum, p) => sum + p.amount, 0) || 0;
-
+            const { data } = await supabase.from('payments').select('amount').gte('created_at', start).lt('created_at', end);
             months.push({
-                month: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-                revenue: total
+                name: d.toLocaleDateString('en-US', { month: 'short' }),
+                value: data?.reduce((s, p) => s + Number(p.amount), 0) || 0
             });
         }
-        setMonthlyRevenue(months);
+
+        // Expected Revenue (Due up to Next 7 Days)
+        const nextWeek = new Date();
+        nextWeek.setDate(nextWeek.getDate() + 7);
+
+        // FIX: Removed 'gte' for today so it includes ALL overdue invoices
+        const { data: dueInvoices } = await supabase
+            .from('invoices')
+            .select('total_amount, paid_amount, student_id')
+            .neq('status', 'paid');
+
+        const dueAmount = dueInvoices?.reduce((sum, i) => sum + (Number(i.total_amount) - Number(i.paid_amount || 0)), 0) || 0;
+
+        // FIX: Count Unique Students
+        const uniqueStudentIds = new Set(dueInvoices?.map(i => i.student_id)).size;
+
+        setKpi(prev => ({ ...prev, revenue: currentRev, revenueGrowth: growth, cashflow: currentRev * 0.45 }));
+        setCharts(prev => ({ ...prev, revenueTrend: months }));
+        setFinancials(prev => ({ ...prev, dueNext7Days: dueAmount, pendingInvoicesCount: uniqueStudentIds }));
     };
 
-    const loadClassRankings = async () => {
-        const { data: classes } = await supabase
-            .from('classes')
-            .select('id, name')
-            .order('display_order');
-
-        const rankings = await Promise.all(
-            (classes || []).map(async (cls) => {
-                // Get top 10 students by roll
-                const { data: students } = await supabase
-                    .from('students')
-                    .select('id, name_en, roll')
-                    .eq('class_id', cls.id)
-                    .eq('status', 'active')
-                    .lte('roll', 10)
-                    .order('roll');
-
-                // Get their recent exam average
-                const studentPerformance = await Promise.all(
-                    (students || []).map(async (student) => {
-                        const { data: marks } = await supabase
-                            .from('marks')
-                            .select('obtained_marks, exams(total_marks)')
-                            .eq('student_id', student.id)
-                            .gte('created_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
-
-                        const avgPercentage = marks && marks.length > 0
-                            ? marks.reduce((sum, m) => sum + (m.obtained_marks / m.exams.total_marks) * 100, 0) / marks.length
-                            : 0;
-
-                        return {
-                            roll: student.roll,
-                            name: student.name_en,
-                            performance: avgPercentage.toFixed(1)
-                        };
-                    })
-                );
-
-                return {
-                    class: cls.name,
-                    students: studentPerformance
-                };
-            })
-        );
-
-        setClassRankings(rankings.filter(r => r.students.length > 0));
-    };
-
-    const loadTopPerformers = async () => {
-        const { data: marks } = await supabase
-            .from('marks')
-            .select(`
-        student_id,
-        obtained_marks,
-        exams(total_marks),
-        students(name_en, roll, classes(name))
-      `)
-            .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-
-        const studentMap = new Map();
-        marks?.forEach(mark => {
-            const studentId = mark.student_id;
-            if (!studentMap.has(studentId)) {
-                studentMap.set(studentId, {
-                    name: mark.students?.name_en,
-                    class: mark.students?.classes?.name,
-                    roll: mark.students?.roll,
-                    totalMarks: 0,
-                    obtainedMarks: 0
-                });
-            }
-            const student = studentMap.get(studentId);
-            student.totalMarks += mark.exams.total_marks;
-            student.obtainedMarks += mark.obtained_marks;
-        });
-
-        const performers = Array.from(studentMap.values())
-            .map(s => ({
-                name: s.name,
-                class: s.class,
-                roll: s.roll,
-                percentage: ((s.obtainedMarks / s.totalMarks) * 100).toFixed(1)
-            }))
-            .sort((a, b) => parseFloat(b.percentage) - parseFloat(a.percentage))
-            .slice(0, 10);
-
-        setTopPerformers(performers);
-    };
-
-    const loadAttendanceByClass = async () => {
-        const { data: classes } = await supabase
-            .from('classes')
-            .select('id, name');
+    const navigate = useNavigate();
+    const loadAcademics = async () => {
+        const { count: total } = await supabase.from('students').select('*', { count: 'exact', head: true });
+        const { count: active } = await supabase.from('students').select('*', { count: 'exact', head: true }).eq('status', 'active');
 
         const today = new Date().toISOString().split('T')[0];
+        const { data: att } = await supabase.from('attendance').select('status').eq('date', today);
+        const present = att?.filter(a => a.status === 'present').length || 0;
+        const rate = active ? (present / active) * 100 : 0;
 
-        const classAttendance = await Promise.all(
-            (classes || []).map(async (cls) => {
-                const { data: students } = await supabase
-                    .from('students')
-                    .select('id')
-                    .eq('class_id', cls.id)
-                    .eq('status', 'active');
+        const trend = [];
+        for(let i=6; i>=0; i--) {
+            const d = new Date(); d.setDate(d.getDate() - i);
+            const dStr = d.toISOString().split('T')[0];
+            const { data } = await supabase.from('attendance').select('status').eq('date', dStr);
+            const p = data?.filter(a => a.status === 'present').length || 0;
+            trend.push({ day: d.toLocaleDateString('en-US', {weekday: 'short'}), rate: active ? (p/active)*100 : 0 });
+        }
 
-                const studentIds = students?.map(s => s.id) || [];
-
-                const { data: attendance } = await supabase
-                    .from('attendance')
-                    .select('status')
-                    .in('student_id', studentIds)
-                    .eq('date', today);
-
-                const present = attendance?.filter(a => a.status === 'present').length || 0;
-                const total = studentIds.length;
-                const rate = total > 0 ? (present / total) * 100 : 0;
-
-                return {
-                    class: cls.name,
-                    rate: rate.toFixed(1),
-                    present,
-                    total
-                };
-            })
-        );
-
-        setAttendanceByClass(classAttendance.filter(c => c.total > 0));
+        setKpi(prev => ({ ...prev, students: total || 0, activeStudents: active || 0, attendance: rate }));
+        setCharts(prev => ({ ...prev, attendanceTrend: trend }));
     };
 
-    const loadFeeCollectionByClass = async () => {
-        const { data: classes } = await supabase
-            .from('classes')
-            .select('id, name');
-
-        const classCollection = await Promise.all(
-            (classes || []).map(async (cls) => {
-                const { data: invoices } = await supabase
-                    .from('invoices')
-                    .select('total, status, students!inner(class_id)')
-                    .eq('students.class_id', cls.id);
-
-                const total = invoices?.reduce((sum, i) => sum + i.total, 0) || 0;
-                const collected = invoices?.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.total, 0) || 0;
-                const rate = total > 0 ? (collected / total) * 100 : 0;
-
-                return {
-                    class: cls.name,
-                    rate: rate.toFixed(1),
-                    collected,
-                    total
-                };
-            })
-        );
-
-        setFeeCollectionByClass(classCollection.filter(c => c.total > 0));
-    };
-
-    const loadPerformanceComparison = async () => {
-        const { data: classes } = await supabase
-            .from('classes')
-            .select('id, name');
-
-        const comparison = await Promise.all(
-            (classes || []).slice(0, 6).map(async (cls) => {
-                // Attendance
-                const today = new Date().toISOString().split('T')[0];
-                const { data: students } = await supabase
-                    .from('students')
-                    .select('id')
-                    .eq('class_id', cls.id)
-                    .eq('status', 'active');
-
-                const studentIds = students?.map(s => s.id) || [];
-
-                const { data: attendance } = await supabase
-                    .from('attendance')
-                    .select('status')
-                    .in('student_id', studentIds)
-                    .eq('date', today);
-
-                const attendanceRate = studentIds.length > 0
-                    ? ((attendance?.filter(a => a.status === 'present').length || 0) / studentIds.length) * 100
-                    : 0;
-
-                // Performance
-                const { data: marks } = await supabase
-                    .from('marks')
-                    .select('obtained_marks, exams(total_marks), students!inner(class_id)')
-                    .eq('students.class_id', cls.id)
-                    .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-
-                const performanceRate = marks && marks.length > 0
-                    ? marks.reduce((sum, m) => sum + (m.obtained_marks / m.exams.total_marks) * 100, 0) / marks.length
-                    : 0;
-
-                // Fee Collection
-                const { data: invoices } = await supabase
-                    .from('invoices')
-                    .select('total, status, students!inner(class_id)')
-                    .eq('students.class_id', cls.id);
-
-                const totalFees = invoices?.reduce((sum, i) => sum + i.total, 0) || 0;
-                const collected = invoices?.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.total, 0) || 0;
-                const collectionRate = totalFees > 0 ? (collected / totalFees) * 100 : 0;
-
-                return {
-                    class: cls.name,
-                    attendance: attendanceRate.toFixed(0),
-                    performance: performanceRate.toFixed(0),
-                    collection: collectionRate.toFixed(0)
-                };
-            })
-        );
-
-        setPerformanceComparison(comparison);
-    };
-
-    const loadRecentActivities = async () => {
-        const activities = [];
-
+    const loadActivityFeed = async () => {
         const { data: payments } = await supabase
             .from('payments')
             .select('amount, created_at, invoices(students(name_en))')
             .order('created_at', { ascending: false })
-            .limit(3);
+            .limit(10);
 
-        payments?.forEach(p => {
-            activities.push({
-                icon: DollarSign,
-                color: 'text-green-600',
-                bg: 'bg-green-100',
-                title: 'Payment Received',
-                description: `৳${p.amount} from ${p.invoices?.students?.name_en}`,
-                time: new Date(p.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-            });
-        });
-
-        setRecentActivities(activities.slice(0, 5));
+        const formatted = payments?.map(p => ({
+            type: 'money',
+            title: `Received ৳${p.amount}`,
+            desc: p.invoices?.students?.name_en || 'Unknown Student',
+            time: new Date(p.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+        })) || [];
+        setFeed(formatted);
     };
 
-    if (loading) {
-        return (
-            <MainLayout>
-                <div className="flex items-center justify-center h-96">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                </div>
-            </MainLayout>
-        );
-    }
+    const loadSettings = async () => {
+        const { data } = await supabase.from('school_settings').select('monthly_target').single();
+        if (data?.monthly_target) setMonthlyTarget(Number(data.monthly_target));
+    };
+
+    // --- REALTIME SUBSCRIPTION ---
+    useEffect(() => {
+        const init = async () => {
+            setLoading(true);
+            await Promise.all([loadSettings(), loadFinancials(), loadAcademics(), loadActivityFeed()]);
+            setLoading(false);
+        };
+        init();
+
+        if (!realtimeMode) { setRealtimeStatus('disconnected'); return; }
+        setRealtimeStatus('connecting');
+
+        const channel = supabase.channel('dashboard-main-channel')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
+                toast({ title: "💰 New Payment", className: "bg-green-50 border-green-200" });
+                loadFinancials(); loadActivityFeed();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => {
+                loadAcademics();
+            })
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') setRealtimeStatus('connected');
+                else setRealtimeStatus('disconnected');
+            });
+
+        return () => { supabase.removeChannel(channel); };
+    }, [realtimeMode]);
+
+    const formatCurrency = (val: number) =>
+        new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(val);
 
     const DashboardContent = () => (
-        <div className="space-y-6">
+        <div className={`space-y-4 ${isFullScreen ? 'p-6 bg-slate-50 min-h-screen' : ''}`}>
+
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold">Dashboard</h1>
-                    <p className="text-muted-foreground">Real-time insights and analytics</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                <div className="flex items-center gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-blue-600">
+                            Principal's Overview
+                        </h1>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                            <span>{new Date().toLocaleDateString('en-GB', { dateStyle: 'full' })}</span>
+                            <span className="h-1 w-1 bg-slate-300 rounded-full"></span>
+                            {realtimeStatus === 'connected' ?
+                                <span className="flex items-center text-green-600 gap-1 font-medium bg-green-50 px-2 py-0.5 rounded-full"><Signal className="w-3 h-3 animate-pulse" /> Live</span> :
+                                <span className="flex items-center text-orange-600 gap-1 font-medium bg-orange-50 px-2 py-0.5 rounded-full"><WifiOff className="w-3 h-3" /> Offline</span>
+                            }
+                        </div>
+                    </div>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={loadDashboardData}>
-                        <Activity className="w-4 h-4 mr-2" />
-                        Refresh
-                    </Button>
-                    <Button variant="outline" onClick={() => setFullscreen(!fullscreen)}>
-                        <Maximize className="w-4 h-4 mr-2" />
-                        {fullscreen ? 'Exit' : 'Fullscreen'}
+
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 relative">
+                        <Switch checked={realtimeMode} onCheckedChange={setRealtimeMode} id="rt-mode" />
+                        <Label htmlFor="rt-mode" className="text-xs font-medium cursor-pointer">Live</Label>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={toggleFullScreen} className="hover:bg-slate-100">
+                        {isFullScreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
                     </Button>
                 </div>
             </div>
 
-            {/* Key Metrics */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="border-l-4 border-l-blue-500">
-                    <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Total Students</CardTitle>
-                            <Users className="w-4 h-4 text-blue-500" />
+            {/* KPI BENTO GRID */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Revenue */}
+                <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 bg-white group overflow-hidden relative">
+                    <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <DollarSign className="w-24 h-24 text-blue-600" />
+                    </div>
+                    <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">Monthly Revenue</p>
+                                <h3 className="text-3xl font-bold text-slate-800 mt-1">{formatCurrency(kpi.revenue)}</h3>
+                            </div>
+                            <div className={`flex items-center px-2 py-1 rounded-full text-xs font-bold ${kpi.revenueGrowth >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                                {kpi.revenueGrowth >= 0 ? <ArrowUpRight className="w-3 h-3 mr-1"/> : <ArrowDownRight className="w-3 h-3 mr-1"/>}
+                                {Math.abs(kpi.revenueGrowth).toFixed(0)}%
+                            </div>
                         </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold">{stats.totalStudents}</div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            <span className="text-green-600 font-semibold">{stats.activeStudents}</span> active
+                        {/* The New Progress Bar */}
+                        <div className="space-y-1">
+                            <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Collected</span>
+                                <span className="font-medium text-slate-600">
+                                    {((kpi.revenue / dynamicTarget) * 100).toFixed(0)}% of Potential
+                                </span>
+                            </div>
+                            <Progress value={(kpi.revenue / dynamicTarget) * 100} className="h-2" />
+                            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                                <span>0</span>
+                                {/* Shows the calculated potential revenue instead of static goal */}
+                                <span>Potential: {formatCurrency(dynamicTarget)}</span>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Attendance */}
+                <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 bg-white group overflow-hidden relative">
+                    <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <Users className="w-24 h-24 text-purple-600" />
+                    </div>
+                    <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">Attendance Today</p>
+                                <h3 className="text-3xl font-bold text-slate-800 mt-1">{kpi.attendance.toFixed(1)}%</h3>
+                            </div>
+                            <Badge variant="outline" className={`${kpi.attendance < 80 ? 'text-red-500 bg-red-50' : 'text-green-600 bg-green-50'} border-transparent`}>
+                                {kpi.activeStudents} Active
+                            </Badge>
+                        </div>
+                        <Progress value={kpi.attendance} className={`h-1.5 bg-slate-100 [&>*]:${kpi.attendance < 75 ? 'bg-red-500' : 'bg-purple-500'}`} />
+                        <p className="text-xs text-muted-foreground mt-2">
+                            {kpi.attendance < 75 ? '⚠️ Below standard' : '✨ Excellent turnout'}
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card className="border-l-4 border-l-green-500">
-                    <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">This Month</CardTitle>
-                            <DollarSign className="w-4 h-4 text-green-500" />
+                {/* Net Profit */}
+                <Card className="border-0 shadow-md bg-gradient-to-br from-slate-900 to-slate-800 text-white hover:shadow-xl transition-all duration-300">
+                    <CardContent className="p-6 flex flex-col justify-between h-full">
+                        <div>
+                            <div className="flex items-center gap-2 mb-2 opacity-80">
+                                <Wallet className="w-4 h-4 text-emerald-400" />
+                                <span className="text-sm font-medium">Net Operating Cash</span>
+                            </div>
+                            <h3 className="text-3xl font-bold">{formatCurrency(kpi.cashflow)}</h3>
                         </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold">৳{stats.collectedThisMonth.toLocaleString()}</div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            <span className="text-orange-600 font-semibold">৳{stats.pendingFees.toLocaleString()}</span> pending
-                        </p>
+                        <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center text-xs opacity-60">
+                            <span>Estimated Margin: ~45%</span>
+                            <span>Stable</span>
+                        </div>
                     </CardContent>
                 </Card>
 
-                <Card className="border-l-4 border-l-purple-500">
-                    <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Attendance Today</CardTitle>
-                            <UserCheck className="w-4 h-4 text-purple-500" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold">{stats.attendanceRate.toFixed(0)}%</div>
-                        <Progress value={stats.attendanceRate} className="mt-2" />
-                    </CardContent>
-                </Card>
-
-                <Card className="border-l-4 border-l-orange-500">
-                    <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">SMS Balance</CardTitle>
-                            <MessageSquare className="w-4 h-4 text-orange-500" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold">{stats.smsBalance}</div>
-                        {stats.smsBalance < 100 && (
-                            <p className="text-xs text-red-600 font-semibold mt-1">Low - Recharge now</p>
-                        )}
+                {/* Quick Actions */}
+                <Card className="border-0 shadow-sm bg-white">
+                    <CardContent className="p-6 grid grid-cols-1 gap-3 h-full content-center">
+                        <Button onClick={ () => navigate('/sms') } className="w-full justify-between bg-blue-50 text-blue-700 hover:bg-blue-100 border-0 shadow-none h-12" variant="outline">
+                            Send Urgent SMS <Zap className="w-4 h-4" />
+                        </Button>
+                        <Button onClick={ () => navigate('/fees') }className="w-full justify-between bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-0 shadow-none h-12" variant="outline">
+                            Record Fee Payment <DollarSign className="w-4 h-4" />
+                        </Button>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Main Charts */}
-            <div className="grid gap-6 lg:grid-cols-2">
-                {/* Attendance Trend */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>14-Day Attendance Trend</CardTitle>
-                        <CardDescription>Daily attendance percentage</CardDescription>
+            {/* Middle Row - COMPACT MODE (Reduced Height) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[300px]">
+                {/* Main Graph */}
+                <Card className="lg:col-span-2 border-0 shadow-md">
+                    <CardHeader className="pb-0 pt-4">
+                        <CardTitle className="flex items-center gap-2 text-base">
+                            <TrendingUp className="w-4 h-4 text-blue-500" /> Revenue Trend
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <AreaChart data={attendanceTrend}>
+                    <CardContent className="h-[200px] pt-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={charts.revenueTrend}>
                                 <defs>
-                                    <linearGradient id="colorRate" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.8}/>
+                                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.3}/>
                                         <stop offset="95%" stopColor={COLORS.primary} stopOpacity={0}/>
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="date" />
-                                <YAxis />
-                                <Tooltip />
-                                <Area type="monotone" dataKey="rate" stroke={COLORS.primary} fillOpacity={1} fill="url(#colorRate)" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} tickFormatter={(val) => `${val/1000}k`} />
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '8px', border: 'none', fontSize: '12px' }}
+                                    formatter={(value: any) => [formatCurrency(value), 'Revenue']}
+                                />
+                                <Area type="monotone" dataKey="value" stroke={COLORS.primary} strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" />
                             </AreaChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
 
-                {/* Revenue Trend */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>12-Month Revenue Trend</CardTitle>
-                        <CardDescription>Monthly collection overview</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={monthlyRevenue}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="month" />
-                                <YAxis />
-                                <Tooltip />
-                                <Line type="monotone" dataKey="revenue" stroke={COLORS.success} strokeWidth={2} />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Class Performance Matrix */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Class Performance Matrix</CardTitle>
-                    <CardDescription>Attendance, Academic Performance & Fee Collection by Class</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ResponsiveContainer width="100%" height={400}>
-                        <RadarChart data={performanceComparison}>
-                            <PolarGrid />
-                            <PolarAngleAxis dataKey="class" />
-                            <PolarRadiusAxis angle={90} domain={[0, 100]} />
-                            <Radar name="Attendance" dataKey="attendance" stroke={COLORS.primary} fill={COLORS.primary} fillOpacity={0.6} />
-                            <Radar name="Performance" dataKey="performance" stroke={COLORS.success} fill={COLORS.success} fillOpacity={0.6} />
-                            <Radar name="Fee Collection" dataKey="collection" stroke={COLORS.warning} fill={COLORS.warning} fillOpacity={0.6} />
-                            <Legend />
-                            <Tooltip />
-                        </RadarChart>
-                    </ResponsiveContainer>
-                </CardContent>
-            </Card>
-
-            {/* Class-wise Rankings */}
-            <div className="grid gap-6 lg:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Crown className="w-5 h-5 text-yellow-500" />
-                            Top 10 Rankings by Class
+                {/* Live Feed */}
+                <Card className="border-0 shadow-md flex flex-col overflow-hidden">
+                    <CardHeader className="bg-slate-50/80 border-b border-slate-100 pb-2 pt-3 px-4">
+                        <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                            <Activity className="w-3 h-3 text-orange-500" /> Live Transactions
                         </CardTitle>
-                        <CardDescription>Roll 1-10 performance overview</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <ScrollArea className="h-[400px]">
-                            {classRankings.map((ranking, idx) => (
-                                <div key={idx} className="mb-6">
-                                    <h3 className="font-semibold text-sm mb-3 text-primary">{ranking.class}</h3>
-                                    <div className="space-y-2">
-                                        {ranking.students.map((student: any, studentIdx: number) => (
-                                            <div key={studentIdx} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                                                <div className="flex items-center gap-3">
-                                                    <Badge variant={studentIdx === 0 ? 'default' : 'secondary'}>
-                                                        #{student.roll}
-                                                    </Badge>
-                                                    <span className="text-sm">{student.name}</span>
-                                                </div>
-                                                <Badge className={
-                                                    parseFloat(student.performance) >= 80 ? 'bg-green-500' :
-                                                        parseFloat(student.performance) >= 60 ? 'bg-blue-500' :
-                                                            'bg-orange-500'
-                                                }>
-                                                    {student.performance}%
-                                                </Badge>
-                                            </div>
-                                        ))}
-                                    </div>
+                    <CardContent className="flex-1 p-0 relative">
+                        <ScrollArea className="h-[200px]">
+                            {feed.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8 text-center">
+                                    <Loader2 className="w-6 h-6 animate-spin mb-2 opacity-20" />
+                                    <p className="text-xs">Waiting for live data...</p>
                                 </div>
-                            ))}
+                            ) : (
+                                <div className="divide-y divide-slate-50">
+                                    {feed.map((item, i) => (
+                                        <div key={i} className="px-4 py-2 hover:bg-slate-50 transition-colors flex gap-3 items-center animate-in slide-in-from-right-2 duration-300">
+                                            <div className="bg-green-100 h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0">
+                                                <DollarSign className="w-3 h-3 text-green-600" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-xs font-semibold text-slate-800 truncate">{item.title}</p>
+                                                <p className="text-[10px] text-muted-foreground truncate">{item.desc}</p>
+                                            </div>
+                                            <span className="text-[10px] font-mono text-slate-400 whitespace-nowrap">
+                                                {item.time}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </ScrollArea>
                     </CardContent>
                 </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Award className="w-5 h-5 text-yellow-500" />
-                            School Top Performers
-                        </CardTitle>
-                        <CardDescription>Last 30 days</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            {topPerformers.map((student, index) => (
-                                <div key={index} className="flex items-center gap-3">
-                                    <Avatar className="h-10 w-10">
-                                        <AvatarFallback className={
-                                            index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                                                index === 1 ? 'bg-gray-200 text-gray-700' :
-                                                    index === 2 ? 'bg-orange-100 text-orange-700' :
-                                                        'bg-blue-100 text-blue-700'
-                                        }>
-                                            #{index + 1}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium truncate">{student.name}</p>
-                                        <p className="text-xs text-muted-foreground">{student.class} • Roll {student.roll}</p>
-                                    </div>
-                                    <Badge variant="default" className="font-bold">
-                                        {student.percentage}%
-                                    </Badge>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
 
-            {/* Class Comparisons */}
-            <div className="grid gap-6 lg:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Attendance by Class</CardTitle>
-                        <CardDescription>Today's attendance rates</CardDescription>
+            {/* Bottom Row - Attendance & Forecast */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Attendance Radar */}
+                <Card className="border-0 shadow-md">
+                    <CardHeader className="pb-2 pt-4">
+                        <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                            <CalendarClock className="w-4 h-4" /> 7-Day Attendance Trend
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={attendanceByClass}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="class" />
-                                <YAxis />
-                                <Tooltip />
-                                <Bar dataKey="rate" fill={COLORS.primary} />
+                    <CardContent className="h-[180px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={charts.attendanceTrend} barGap={0}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
+                                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#64748b'}} dy={5} />
+                                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border: 'none', fontSize: '12px'}} />
+                                <Bar dataKey="rate" fill={COLORS.purple} radius={[4, 4, 0, 0]} barSize={30} />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Fee Collection by Class</CardTitle>
-                        <CardDescription>Collection rates</CardDescription>
+                {/* Financial Forecast */}
+                <Card className="border-0 shadow-md bg-gradient-to-br from-indigo-50 to-white border-indigo-100">
+                    <CardHeader className="pb-2 pt-4">
+                        <CardTitle className="text-sm font-medium uppercase tracking-wider text-indigo-900 flex items-center gap-2">
+                            <Briefcase className="w-4 h-4" /> Total Outstanding Dues
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={feeCollectionByClass}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="class" />
-                                <YAxis />
-                                <Tooltip />
-                                <Bar dataKey="rate" fill={COLORS.success} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        <div className="flex items-end gap-2 mb-3">
+                            <h3 className="text-3xl font-bold text-slate-800">{formatCurrency(financials.dueNext7Days)}</h3>
+                        </div>
+                        <div className="space-y-3">
+                            <div className="flex justify-between text-xs text-slate-600">
+                                <span>Students with Pending Invoices</span>
+                                <span className="font-semibold">{financials.pendingInvoicesCount} Students</span>
+                            </div>
+                            <Progress value={60} className="h-1.5 bg-indigo-200 [&>*]:bg-indigo-600" />
+                            <div className="flex items-center gap-2 text-xs text-indigo-700 bg-indigo-100/50 p-2 rounded-lg border border-indigo-100">
+                                <Zap className="w-3 h-3 flex-shrink-0" />
+                                <span>Action: Send bulk SMS to these {financials.pendingInvoicesCount} students.</span>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
             </div>
         </div>
     );
 
-    if (fullscreen) {
-        return (
-            <div className="fixed inset-0 bg-white z-50 overflow-auto">
-                <div className="p-6">
-                    <div className="flex justify-end mb-4">
-                        <Button variant="outline" onClick={() => setFullscreen(false)}>
-                            <X className="w-4 h-4 mr-2" />
-                            Exit Fullscreen
-                        </Button>
-                    </div>
-                    <DashboardContent />
+    return isFullScreen ? (
+        <div className="fixed inset-0 z-50 bg-slate-50 overflow-auto animate-in fade-in duration-300">
+            {loading ? (
+                <div className="h-screen w-screen flex items-center justify-center">
+                    <Loader2 className="w-10 h-10 animate-spin text-primary" />
                 </div>
-            </div>
-        );
-    }
-
-    return (
+            ) : <div className="container mx-auto p-4 max-w-[1600px]"><DashboardContent /></div>}
+        </div>
+    ) : (
         <MainLayout>
-            <DashboardContent />
+            {loading ? (
+                <div className="h-96 w-full flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+            ) : <DashboardContent />}
         </MainLayout>
     );
 }

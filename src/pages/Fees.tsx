@@ -20,6 +20,16 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
     Table,
     TableBody,
     TableCell,
@@ -32,11 +42,12 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { generateReceipt } from '@/lib/receipt';
+import {generateReceipt, viewReceipt} from '@/lib/receipt';
 import {
     DollarSign,
     Loader2,
@@ -52,13 +63,16 @@ import {
     TrendingUp,
     Users,
     FileText,
-    Download
+    Download,
+    Trash2
 } from 'lucide-react';
+import {useNavigate} from "react-router-dom";
 
 export default function Fees() {
     const { toast } = useToast();
     const { user } = useAuth();
 
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -94,6 +108,10 @@ export default function Fees() {
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [transactionId, setTransactionId] = useState('');
+
+    // Delete State
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [invoiceToDelete, setInvoiceToDelete] = useState<any>(null);
 
     // Stats
     const [stats, setStats] = useState({
@@ -450,7 +468,41 @@ export default function Fees() {
                 payment_method: payment.payment_method,
                 payment_date: payment.created_at
             }, school);
+
             toast({ title: "✓ Receipt downloaded!" });
+        }
+    };
+
+    // --- DELETE LOGIC (UPDATED FOR CASCADE) ---
+    const confirmDelete = (invoice: any) => {
+        setInvoiceToDelete(invoice);
+        setDeleteDialogOpen(true);
+    };
+
+    const handleDeleteInvoice = async () => {
+        if (!invoiceToDelete) return;
+        setSaving(true);
+
+        try {
+            // 1. Delete associated payments first (Cascade)
+            await supabase.from('payments').delete().eq('invoice_id', invoiceToDelete.id);
+
+            // 2. Delete invoice items
+            await supabase.from('invoice_items').delete().eq('invoice_id', invoiceToDelete.id);
+
+            // 3. Delete the invoice
+            const { error } = await supabase.from('invoices').delete().eq('id', invoiceToDelete.id);
+
+            if (error) throw error;
+
+            toast({ title: "✓ Invoice and associated records deleted" });
+            loadInvoices();
+        } catch (error: any) {
+            toast({ title: "Error", description: error.message, variant: "destructive" });
+        } finally {
+            setSaving(false);
+            setDeleteDialogOpen(false);
+            setInvoiceToDelete(null);
         }
     };
 
@@ -783,6 +835,20 @@ export default function Fees() {
                                                             Print Receipt
                                                         </DropdownMenuItem>
                                                     )}
+
+                                                    <DropdownMenuItem onClick={() => navigate(`/receipt/${invoice.id}`)}>
+                                                        <Eye className="w-4 h-4 mr-2" />
+                                                        View Receipt
+                                                    </DropdownMenuItem>
+
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                                                        onClick={() => confirmDelete(invoice)}
+                                                    >
+                                                        <Trash2 className="w-4 h-4 mr-2" />
+                                                        Delete Invoice
+                                                    </DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
@@ -866,6 +932,40 @@ export default function Fees() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the invoice
+                            <strong> {invoiceToDelete?.invoice_no}</strong>.
+                            {parseFloat(invoiceToDelete?.paid_amount) > 0 && (
+                                <div className="mt-2 p-2 bg-red-50 text-red-800 rounded border border-red-200">
+                                    <strong className="flex items-center gap-1"><AlertCircle className="w-4 h-4" /> Warning:</strong>
+                                    This invoice has {parseFloat(invoiceToDelete?.paid_amount)} paid.
+                                    Deleting it will also delete all associated payment records!
+                                </div>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(e) => {
+                                e.preventDefault();
+                                handleDeleteInvoice();
+                            }}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                            disabled={saving}
+                        >
+                            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                            Delete Invoice
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </MainLayout>
     );
 }

@@ -80,15 +80,17 @@ interface Notification {
 
 const menuItems = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/', roles: ['admin', 'teacher'] },
-    { label: 'Students', icon: Users, href: '/students', roles: ['admin', 'teacher'] },
     { label: 'Admission', icon: GraduationCap, href: '/admission', roles: ['admin'] },
+    { label: 'Students', icon: Users, href: '/students', roles: ['admin', 'teacher'] },
     { label: 'Attendance', icon: Calendar, href: '/attendance', roles: ['admin', 'teacher'] },
+    { label: 'Fees', icon: CreditCard, href: '/fees', roles: ['admin', 'accountant'] },
     { label: 'Exams', icon: BookOpen, href: '/exams', roles: ['admin', 'teacher'] },
     { label: 'Reports', icon: FileText, href: '/reports', roles: ['admin', 'teacher'] },
     { label: 'Certificates', icon: Award, href: '/certificates', roles: ['admin'] },
     { label: 'ID Cards', icon: IdCard, href: '/id-cards', roles: ['admin'] },
-    { label: 'Fees', icon: CreditCard, href: '/fees', roles: ['admin', 'accountant'] },
+    { label: 'Admit Cards', icon: User, href: '/admit-cards', roles: ['admin'] },
     { label: 'SMS Center', icon: MessageSquare, href: '/sms', roles: ['admin'] },
+    { label: 'Accounting', icon: UserCog, href: '/accounts', roles: ['admin'] },
     { label: 'Settings', icon: Settings, href: '/settings', roles: ['admin'] }
 ];
 
@@ -165,42 +167,6 @@ export function MainLayout({ children }: MainLayoutProps) {
                 });
             });
 
-            // Search Teachers
-            const { data: teachers } = await supabase
-                .from('teachers')
-                .select('id, name, subject')
-                .ilike('name', `%${searchQuery}%`)
-                .limit(3);
-
-            teachers?.forEach(t => {
-                results.push({
-                    type: 'teacher',
-                    id: t.id,
-                    title: t.name,
-                    subtitle: t.subject || 'Teacher',
-                    href: `/teachers/${t.id}`,
-                    icon: GraduationCap
-                });
-            });
-
-            // Search Classes
-            const { data: classes } = await supabase
-                .from('classes')
-                .select('id, name')
-                .ilike('name', `%${searchQuery}%`)
-                .limit(3);
-
-            classes?.forEach(c => {
-                results.push({
-                    type: 'class',
-                    id: c.id,
-                    title: c.name,
-                    subtitle: 'Class',
-                    href: `/classes/${c.id}`,
-                    icon: BookOpen
-                });
-            });
-
             // Search Invoices
             const { data: invoices } = await supabase
                 .from('invoices')
@@ -214,7 +180,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                     id: i.id,
                     title: i.invoice_no,
                     subtitle: `${i.students?.name_en} • ৳${i.total}`,
-                    href: `/fees`,
+                    href: `/receipt/${i.id}`,
                     icon: CreditCard
                 });
             });
@@ -504,7 +470,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                         <Search className="w-5 h-5 text-gray-400" />
                         <Input
                             type="text"
-                            placeholder="Search students, fees, exams..."
+                            placeholder="Search students, receipts"
                             className="border-none focus-visible:ring-0 shadow-none"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
