@@ -433,7 +433,7 @@ export default function Fees() {
                 await generateReceipt({
                     ...selectedInvoice,
                     students: student,
-                    payment_amount: amount,
+                    paid_amount: amount,
                     payment_method: paymentMethod,
                     payment_date: new Date().toISOString()
                 }, school);
