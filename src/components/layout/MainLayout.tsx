@@ -463,7 +463,7 @@ export function MainLayout({ children }: MainLayoutProps) {
             )}
 
             {/* Main Content */}
-            <main className={cn("transition-all duration-300", collapsed ? "lg:ml-20" : "lg:ml-64", "pt-16 lg:pt-0")}>
+            <main className={cn("max-w-full transition-all duration-300", collapsed ? "lg:ml-20" : "lg:ml-64", "pt-16 lg:pt-0")}>
                 {/* Desktop Header */}
                 <div className="hidden lg:flex h-16 bg-white border-b items-center justify-between px-6">
                     <div className="flex items-center gap-4 flex-1 max-w-xl relative">
