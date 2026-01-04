@@ -2,19 +2,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { QrCode, Camera, Loader2, Volume2 } from 'lucide-react';
+import { QrCode, Camera, Loader2, Volume2, ScanLine } from 'lucide-react';
 import { Html5QrcodeScanner, Html5QrcodeScanType } from 'html5-qrcode';
+import { cn } from '@/lib/utils';
 
-// Simple beep sound data URI to avoid external file dependencies
+// Beep sound
 const BEEP_SOUND = "data:audio/wav;base64,UklGRl9vT1BXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU";
 
 interface QRScannerProps {
     onScan: (data: string) => void;
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
+    className?: string; // NEW: Allow custom styling
+    variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" | "hero"; // NEW: Allow custom variants
 }
 
-export function QRScanner({ onScan, open, onOpenChange }: QRScannerProps) {
+export function QRScanner({ onScan, open, onOpenChange, className, variant = "outline" }: QRScannerProps) {
     const [scanning, setScanning] = useState(false);
     const [initializing, setInitializing] = useState(false);
     const scannerRef = useRef<Html5QrcodeScanner | null>(null);
@@ -35,10 +38,7 @@ export function QRScanner({ onScan, open, onOpenChange }: QRScannerProps) {
     useEffect(() => {
         if (isOpen && !scannerRef.current) {
             setInitializing(true);
-
-            // Small delay to ensure DOM is ready
             setTimeout(() => {
-                // Ensure previous instance is cleared if it exists in DOM but not ref
                 const element = document.getElementById("qr-reader");
                 if (element) element.innerHTML = "";
 
@@ -58,14 +58,8 @@ export function QRScanner({ onScan, open, onOpenChange }: QRScannerProps) {
                     (decodedText) => {
                         if (!scanning) {
                             setScanning(true);
-
-                            // 1. Play Sound
                             playBeep();
-
-                            // 2. Return Data
                             onScan(decodedText);
-
-                            // 3. Close with delay for visual feedback
                             setTimeout(() => {
                                 setScanning(false);
                                 if (scannerRef.current) {
@@ -76,9 +70,7 @@ export function QRScanner({ onScan, open, onOpenChange }: QRScannerProps) {
                             }, 1000);
                         }
                     },
-                    (errorMessage) => {
-                        // console.log(errorMessage); // Ignore scan errors to keep console clean
-                    }
+                    () => {}
                 );
 
                 scannerRef.current = scanner;
@@ -86,7 +78,6 @@ export function QRScanner({ onScan, open, onOpenChange }: QRScannerProps) {
             }, 100);
         }
 
-        // Cleanup on unmount or close
         return () => {
             if (scannerRef.current) {
                 scannerRef.current.clear().catch(() => {});
@@ -99,9 +90,10 @@ export function QRScanner({ onScan, open, onOpenChange }: QRScannerProps) {
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             {open === undefined && (
                 <DialogTrigger asChild>
-                    <Button variant="outline">
-                        <QrCode className="w-4 h-4 mr-2" />
-                        QR Scanner
+                    <Button variant={variant} className={cn("gap-2", className)}>
+                        <ScanLine className="w-4 h-4" />
+                        <span className="hidden sm:inline">Scan ID</span>
+                        <span className="inline sm:hidden">Scan</span>
                     </Button>
                 </DialogTrigger>
             )}
@@ -119,7 +111,7 @@ export function QRScanner({ onScan, open, onOpenChange }: QRScannerProps) {
                     </div>
                 )}
 
-                <div id="qr-reader" className="w-full rounded-lg overflow-hidden"></div>
+                <div id="qr-reader" className="w-full rounded-lg overflow-hidden border-2 border-slate-100"></div>
 
                 {scanning && (
                     <div className="text-center py-4 animate-in fade-in zoom-in">
