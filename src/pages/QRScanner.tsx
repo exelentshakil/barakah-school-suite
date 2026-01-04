@@ -1,9 +1,12 @@
-// FILE: src/components/QRScanner.tsx - USING html5-qrcode (NO DEPENDENCY ISSUES)
+// FILE: src/components/QRScanner.tsx
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { QrCode, Camera, Loader2 } from 'lucide-react';
+import { QrCode, Camera, Loader2, Volume2 } from 'lucide-react';
 import { Html5QrcodeScanner, Html5QrcodeScanType } from 'html5-qrcode';
+
+// Simple beep sound data URI to avoid external file dependencies
+const BEEP_SOUND = "data:audio/wav;base64,UklGRl9vT1BXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU";
 
 interface QRScannerProps {
     onScan: (data: string) => void;
@@ -20,18 +23,33 @@ export function QRScanner({ onScan, open, onOpenChange }: QRScannerProps) {
     const isOpen = open !== undefined ? open : internalOpen;
     const setIsOpen = onOpenChange || setInternalOpen;
 
+    const playBeep = () => {
+        try {
+            const audio = new Audio(BEEP_SOUND);
+            audio.play().catch(e => console.error("Audio play failed", e));
+        } catch (e) {
+            console.error("Audio error", e);
+        }
+    };
+
     useEffect(() => {
         if (isOpen && !scannerRef.current) {
             setInitializing(true);
 
+            // Small delay to ensure DOM is ready
             setTimeout(() => {
+                // Ensure previous instance is cleared if it exists in DOM but not ref
+                const element = document.getElementById("qr-reader");
+                if (element) element.innerHTML = "";
+
                 const scanner = new Html5QrcodeScanner(
                     "qr-reader",
                     {
                         fps: 10,
                         qrbox: { width: 250, height: 250 },
                         aspectRatio: 1.0,
-                        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+                        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+                        showTorchButtonIfSupported: true
                     },
                     false
                 );
@@ -40,8 +58,14 @@ export function QRScanner({ onScan, open, onOpenChange }: QRScannerProps) {
                     (decodedText) => {
                         if (!scanning) {
                             setScanning(true);
+
+                            // 1. Play Sound
+                            playBeep();
+
+                            // 2. Return Data
                             onScan(decodedText);
 
+                            // 3. Close with delay for visual feedback
                             setTimeout(() => {
                                 setScanning(false);
                                 if (scannerRef.current) {
@@ -49,11 +73,11 @@ export function QRScanner({ onScan, open, onOpenChange }: QRScannerProps) {
                                     scannerRef.current = null;
                                 }
                                 setIsOpen(false);
-                            }, 1500);
+                            }, 1000);
                         }
                     },
-                    () => {
-                        // Ignore scan errors
+                    (errorMessage) => {
+                        // console.log(errorMessage); // Ignore scan errors to keep console clean
                     }
                 );
 
@@ -62,6 +86,7 @@ export function QRScanner({ onScan, open, onOpenChange }: QRScannerProps) {
             }, 100);
         }
 
+        // Cleanup on unmount or close
         return () => {
             if (scannerRef.current) {
                 scannerRef.current.clear().catch(() => {});
@@ -80,7 +105,7 @@ export function QRScanner({ onScan, open, onOpenChange }: QRScannerProps) {
                     </Button>
                 </DialogTrigger>
             )}
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Camera className="w-5 h-5" />
@@ -94,12 +119,12 @@ export function QRScanner({ onScan, open, onOpenChange }: QRScannerProps) {
                     </div>
                 )}
 
-                <div id="qr-reader" className="w-full"></div>
+                <div id="qr-reader" className="w-full rounded-lg overflow-hidden"></div>
 
                 {scanning && (
-                    <div className="text-center py-4">
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg">
-                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <div className="text-center py-4 animate-in fade-in zoom-in">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg shadow-sm border border-green-200">
+                            <Volume2 className="w-4 h-4" />
                             <span className="font-semibold">Scanned Successfully!</span>
                         </div>
                     </div>

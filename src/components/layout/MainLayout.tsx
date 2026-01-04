@@ -81,14 +81,14 @@ interface Notification {
 const menuItems = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/', roles: ['admin', 'teacher'] },
     { label: 'Admission', icon: GraduationCap, href: '/admission', roles: ['admin'] },
+    { label: 'Fees', icon: CreditCard, href: '/fees', roles: ['admin', 'accountant'] },
+    { label: 'ID Cards', icon: IdCard, href: '/id-cards', roles: ['admin'] },
     { label: 'Students', icon: Users, href: '/students', roles: ['admin', 'teacher'] },
     { label: 'Attendance', icon: Calendar, href: '/attendance', roles: ['admin', 'teacher'] },
-    { label: 'Fees', icon: CreditCard, href: '/fees', roles: ['admin', 'accountant'] },
     { label: 'Exams', icon: BookOpen, href: '/exams', roles: ['admin', 'teacher'] },
-    { label: 'Reports', icon: FileText, href: '/reports', roles: ['admin', 'teacher'] },
-    { label: 'Certificates', icon: Award, href: '/certificates', roles: ['admin'] },
-    { label: 'ID Cards', icon: IdCard, href: '/id-cards', roles: ['admin'] },
     { label: 'Admit Cards', icon: User, href: '/admit-cards', roles: ['admin'] },
+    { label: 'Exam Reports', icon: FileText, href: '/reports', roles: ['admin', 'teacher'] },
+    { label: 'Certificates', icon: Award, href: '/certificates', roles: ['admin'] },
     { label: 'SMS Center', icon: MessageSquare, href: '/sms', roles: ['admin'] },
     { label: 'Accounting', icon: UserCog, href: '/accounts', roles: ['admin'] },
     { label: 'Settings', icon: Settings, href: '/settings', roles: ['admin'] }
