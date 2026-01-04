@@ -19,7 +19,7 @@ import {
     Loader2,
     Search,
     Filter,
-    CalendarCheck
+    CalendarCheck, Badge
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
