@@ -178,11 +178,11 @@ export default function Dashboard() {
 
         const { data: dueInvoices } = await supabase
             .from('invoices')
-            .select('total, paid_amount, student_id')
-            .lte('due_date', nextWeek.toISOString())
+            .select('total_amount, paid_amount, student_id')
             .neq('status', 'paid');
 
-        const dueAmount = dueInvoices?.reduce((sum, i) => sum + (Number(i.total) - Number(i.paid_amount || 0)), 0) || 0;
+        console.log(dueInvoices);
+        const dueAmount = dueInvoices?.reduce((sum, i) => sum + (Number(i.total_amount) - Number(i.paid_amount || 0)), 0) || 0;
         const uniqueStudentIds = new Set(dueInvoices?.map(i => i.student_id)).size;
 
         setKpi(prev => ({ ...prev, revenue: currentRev, revenueGrowth: growth, cashflow: currentRev * 0.45 }));
